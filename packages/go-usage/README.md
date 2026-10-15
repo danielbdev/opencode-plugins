@@ -62,6 +62,38 @@ This endpoint is **live but undocumented**. Two consequences the code respects:
 
 The plugin mirrors the endpoint exactly; its own 5-minute cache is the only staleness it can add.
 
+## Security
+
+**This plugin reads your OpenCode Go credential.** That is exactly what a malicious plugin would do, so it
+deserves to be reviewed with that lens. Here is what it does with it, and how to check it yourself.
+
+### What happens to the credential
+
+1. The server half asks OpenCode for the `opencode-go` connection and resolves it through the credential
+   store the host already owns. It never goes looking for a key on disk.
+2. The key is used in exactly one place: the `Authorization` header of one `GET` to
+   `https://opencode.ai/inference/go/v1/usage`, a host hardcoded in the source.
+3. It is never logged (`console.` and `process.stdout` appear nowhere in the sources), never written to
+   storage, and never part of the snapshot that crosses the RPC boundary. The TUI half receives
+   percentages, reset instants and status strings, and nothing else.
+
+### What you can verify instead of trusting
+
+- **The sources ship unminified.** There is no build step and no bundle: `npm pack` publishes the same
+  eight files you can read in this repository, so the audit surface is the entire program.
+- **Provenance.** Releases are published from GitHub Actions over OIDC and carry a SLSA provenance
+  attestation that ties the tarball to the commit and the workflow that produced it.
+- **Nothing runs at install time.** There is no `preinstall`, `postinstall` or `prepare` script, so
+  installing the package executes no code.
+
+### The honest limit
+
+The plugin API is not a sandbox: a plugin runs with the host's plugin capabilities, so the guarantee here
+is the code, not an enforced restriction. That is exactly why the code ships readable and every release is
+attestable. This design also keeps the exposure smaller than the alternatives — asking you to paste a key
+into a config file would leave it in plain text indefinitely, and reading `auth.json` directly would
+bypass the host's credential store entirely.
+
 ## Development
 
 ```sh
