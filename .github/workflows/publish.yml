@@ -54,6 +54,19 @@ jobs:
           echo "Publishing ${NAME}@${VERSION}"
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
 
+      # A package that is not on the registry yet cannot be published this way:
+      # the trusted publisher is configured per package, from the package's own
+      # settings page, so it cannot exist before the package does. Without this
+      # check the failure surfaces as an opaque 404 on the PUT.
+      - name: Check the package already exists on the registry
+        run: |
+          set -euo pipefail
+          NAME="${{ steps.target.outputs.name }}"
+          if ! npm view "$NAME" version >/dev/null 2>&1; then
+            echo "::error::${NAME} is not on the registry yet. Publish it once by hand with 'npm publish -w ${NAME} --access public', configure its trusted publisher on npmjs.com, and release again."
+            exit 1
+          fi
+
       # Provenance attestations are generated automatically for a public package
       # published from a public repository through trusted publishing.
       - run: npm publish -w "${{ steps.target.outputs.name }}" --access public
