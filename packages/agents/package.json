@@ -1,0 +1,47 @@
+{
+  "name": "@danielbdev/opencode-agents",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OpenCode V2 plugin that shows subagent status in the session sidebar",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielbdev/opencode-plugins.git",
+    "directory": "packages/agents"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-agents",
+    "subagents",
+    "sidebar"
+  ],
+  "exports": {
+    "./tui": "./src/tui.tsx"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.0.4"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.5.8",
+    "@opentui/solid": ">=0.5.8",
+    "solid-js": ">=1.9.0"
+  },
+  "devDependencies": {
+    "@opencode/client": "^2.0.4",
+    "@opencode/theme": "^2.0.4",
+    "@opentui/core": ">=0.5.8",
+    "@opentui/solid": ">=0.5.8",
+    "solid-js": ">=1.9.0",
+    "typescript": "^5.9.0"
+  }
+}
