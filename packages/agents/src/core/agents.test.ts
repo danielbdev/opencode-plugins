@@ -166,6 +166,24 @@ test("feedbackOf maps every state onto a theme feedback kind", () => {
   assert.equal(feedbackOf("idle"), "info")
 })
 
+test("a failed subagent keeps its final duration even while liveness still reports running", () => {
+  const summary = summarize(
+    [
+      subagent({
+        id: "boom",
+        outcome: "failed",
+        time: { created: NOW - 60_000, updated: NOW - 20_000 },
+      }),
+    ],
+    // Liveness lags: the outcome is already recorded but the status bit still says running.
+    new Set(["boom"]),
+    NOW,
+  )
+
+  assert.equal(summary.entries[0]?.state, "failed")
+  assert.equal(summary.entries[0]?.elapsedMs, 40_000)
+})
+
 test("summaryFeedback reports the worst state present", () => {
   const allGood = summarize([subagent({ id: "a", outcome: "succeeded" })], new Set(), NOW)
   assert.equal(summaryFeedback(allGood), "success")
@@ -178,4 +196,9 @@ test("summaryFeedback reports the worst state present", () => {
 
   const empty = summarize([], new Set(), NOW)
   assert.equal(summaryFeedback(empty), "info")
+
+  // Finished without a recorded outcome is still a green section: nothing is
+  // running and nothing failed.
+  const idleOnly = summarize([subagent({ id: "a" })], new Set(), NOW)
+  assert.equal(summaryFeedback(idleOnly), "success")
 })

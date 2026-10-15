@@ -18,7 +18,7 @@ Agents
 2 running · 4 done · 1 failed
 explore · 42s
 general · 3m
-verify · failed · 1m 5s
+verify · failed · 3m
 ```
 
 Succeeded subagents are counted but not listed, so the section stays short. Running ones come first,

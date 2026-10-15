@@ -112,7 +112,10 @@ export function summarize(
         id: session.id,
         name: session.agent ?? UNNAMED,
         state,
-        elapsedMs: elapsedOf(session, isRunning, now),
+        // Measured against the state actually shown, not the raw liveness bit: a
+        // recorded outcome wins over liveness in `stateOf`, so keying the clock
+        // off liveness would let a failed entry's duration keep growing.
+        elapsedMs: elapsedOf(session, state === "running", now),
       })
     }
   }
@@ -160,6 +163,6 @@ export function feedbackOf(state: AgentState): FeedbackKind {
 export function summaryFeedback(summary: AgentSummary): FeedbackKind {
   if (summary.failed > 0) return "error"
   if (summary.running > 0) return "warning"
-  if (summary.succeeded > 0) return "success"
+  if (summary.done > 0) return "success"
   return "info"
 }
