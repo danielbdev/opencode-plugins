@@ -1,0 +1,59 @@
+name: Publish
+
+# Releases are cut by pushing a tag shaped `<workspace-directory>@<version>`,
+# for example `go-usage@0.1.1`. The tag names which package to publish.
+on:
+  push:
+    tags:
+      - "*@*"
+
+# id-token: write is what lets the job exchange a GitHub OIDC token for a
+# short-lived npm publish credential. No npm token is stored in the repository.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+
+      - name: Resolve the tagged package
+        id: target
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          DIRECTORY="${TAG%@*}"
+          VERSION="${TAG##*@}"
+          MANIFEST="packages/${DIRECTORY}/package.json"
+
+          if [ ! -f "$MANIFEST" ]; then
+            echo "::error::No package manifest at ${MANIFEST} for tag ${TAG}"
+            exit 1
+          fi
+
+          NAME=$(node -p "require('./${MANIFEST}').name")
+          ACTUAL=$(node -p "require('./${MANIFEST}').version")
+
+          if [ "$ACTUAL" != "$VERSION" ]; then
+            echo "::error::Tag says ${VERSION} but ${MANIFEST} says ${ACTUAL}. Bump the version before tagging."
+            exit 1
+          fi
+
+          echo "Publishing ${NAME}@${VERSION}"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+
+      # Provenance attestations are generated automatically for a public package
+      # published from a public repository through trusted publishing.
+      - run: npm publish -w "${{ steps.target.outputs.name }}" --access public
