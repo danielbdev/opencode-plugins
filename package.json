@@ -1,0 +1,11 @@
+{
+  "name": "opencode-plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Atomic OpenCode V2 plugins. Each package does one thing and installs alone.",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
