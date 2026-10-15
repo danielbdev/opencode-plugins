@@ -4,6 +4,11 @@
   "type": "module",
   "description": "OpenCode V2 plugin that shows the OpenCode Go subscription usage in the session sidebar",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielbdev/opencode-plugins.git",
+    "directory": "packages/go-usage"
+  },
   "keywords": [
     "opencode",
     "opencode-plugin",

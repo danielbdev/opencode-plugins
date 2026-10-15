@@ -77,20 +77,28 @@ This package lives in a monorepo of atomic plugins: each package does one thing 
 
 ## Releasing
 
-Versions are **independent per package**: touching one plugin never forces a release of another.
+A release is cut by pushing a tag shaped `<workspace-directory>@<version>`; GitHub Actions then publishes
+that package through npm trusted publishing (OIDC), so no npm token is stored anywhere.
 
 ```sh
-npm version patch -w @danielbdev/opencode-go-usage   # or minor / major
-npm publish -w @danielbdev/opencode-go-usage --access public
+npm version patch -w @danielbdev/opencode-go-usage --no-git-tag-version
+git add packages/go-usage/package.json package-lock.json
+git commit -m "chore(release): go-usage 0.1.1"
+git tag -a go-usage@0.1.1 -m "go-usage 0.1.1"
+git push --follow-tags
 ```
 
-`--access public` is required on every publish: scoped packages default to private.
+Use an **annotated** tag (`-a`): `git push --follow-tags` only pushes annotated tags, so a lightweight tag
+would silently never trigger the workflow.
 
-`npm publish --workspaces` publishes every package at once, but npm refuses to republish a version that
-already exists, so it only fits when every package is bumped together.
+The workflow checks that the tag matches the version in the manifest, so a mistyped tag fails loudly
+instead of publishing the wrong thing. It runs the tests and the typecheck before publishing, and npm
+attaches a provenance attestation automatically because the repository and the package are public.
+
+Versions are **independent per package**: touching one plugin never forces a release of another.
 
 The repository root stays at `0.0.0` and is never published; it only holds the workspace configuration.
-`npm version` also needs a version there, or npm crashes while reading the workspace manifest.
+`npm version` still needs a version there, or npm crashes while reading the workspace manifest.
 
 ## Roadmap
 
