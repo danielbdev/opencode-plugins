@@ -1,0 +1,2 @@
+# The published file set is governed by the "files" allowlist in package.json.
+# This file exists so npm does not fall back to .gitignore and warn on every publish.

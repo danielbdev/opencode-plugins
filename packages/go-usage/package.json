@@ -1,0 +1,46 @@
+{
+  "name": "@danielbdev/opencode-go-usage",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OpenCode V2 plugin that shows the OpenCode Go subscription usage in the session sidebar",
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-go",
+    "usage",
+    "quota",
+    "sidebar"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./tui": "./src/tui.tsx",
+    "./rpc": "./src/rpc.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.0.4"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.5.8",
+    "@opentui/solid": ">=0.5.8",
+    "solid-js": ">=1.9.0"
+  },
+  "devDependencies": {
+    "@opencode/client": "^2.0.4",
+    "@opencode/schema": "^2.0.4",
+    "@opencode/theme": "^2.0.4",
+    "@opentui/core": ">=0.5.8",
+    "@opentui/solid": ">=0.5.8",
+    "solid-js": ">=1.9.0",
+    "typescript": "^5.9.0"
+  }
+}
