@@ -44,6 +44,18 @@ The state comes from fields that are queryable, not inferred from events:
 | `time.created` / `time.idle` | elapsed time |
 | `data.session.status(id)` | adds the liveness bit: `idle` or `running` |
 
+## Security
+
+This plugin **reads no credentials and makes no network requests**. It has no server half, so there is
+nothing to authenticate and nothing to send anywhere.
+
+What it does read is the host's session records for the session it renders in: the agent name, the outcome
+and the timing of each subagent. That is the feature — a status section cannot work without reading
+status. Nothing is written back, nothing is persisted, and the data never leaves the TUI process.
+
+Like every package in this repository it ships its sources unminified, with no build step and no
+install-time script, and each release carries a provenance attestation.
+
 ## Development
 
 ```sh
