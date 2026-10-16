@@ -1,0 +1,28 @@
+name: CI
+
+# Runs on every pull request and on every push to main. The publish workflow runs
+# the same three commands as its gate, but only on a tag: without this one, a pull
+# request arrives with nothing checking it.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only: this workflow never publishes and needs no token beyond checkout.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
