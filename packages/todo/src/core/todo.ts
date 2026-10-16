@@ -152,31 +152,69 @@ export function applyTodo(state: TodoState, input: TodoInput): TodoState {
   return state
 }
 
-export interface ToolResultLike {
-  readonly name: string
-  readonly status: string
-  readonly metadata?: unknown
+/**
+ * One recorded call to the todo tool, however it was reached.
+ *
+ * A first-class call leaves its own tool part and carries the snapshot the tool
+ * wrote. A call made through Code Mode is nested inside an `execute` part, which
+ * records what ran but not what it returned, so there the actions are folded.
+ */
+export interface TodoEvent {
+  readonly snapshot: TodoState | null
+  readonly actions: readonly TodoInput[]
 }
 
-/** The slice of a session message the extraction needs. */
-export interface MessageLike {
-  readonly type?: string
-  readonly content?: readonly unknown[]
+/** The tool OpenCode uses to run other tools from JavaScript. */
+const CODE_MODE_TOOL = "execute"
+
+function parseInput(value: unknown): TodoInput | null {
+  if (!isRecord(value)) return null
+
+  const action = value.action
+  if (action !== "write" && action !== "update" && action !== "clear") return null
+
+  const items =
+    Array.isArray(value.items) && value.items.every((item) => typeof item === "string")
+      ? (value.items as readonly string[])
+      : undefined
+  const id = typeof value.id === "string" ? value.id : undefined
+  const status = isStatus(value.status) ? value.status : undefined
+
+  return { action, items, id, status }
+}
+
+/** The calls a Code Mode wrapper recorded inside its own metadata. */
+function nestedActions(metadata: unknown, toolName: string): TodoInput[] {
+  if (!isRecord(metadata)) return []
+
+  const calls = metadata.toolCalls
+  if (!Array.isArray(calls)) return []
+
+  const actions: TodoInput[] = []
+  for (const call of calls) {
+    if (!isRecord(call)) continue
+    if (call.tool !== toolName) continue
+    if (call.status !== "completed") continue
+
+    const parsed = parseInput(call.input)
+    if (parsed !== null) actions.push(parsed)
+  }
+
+  return actions
 }
 
 /**
- * Pull this tool's results out of a session's messages, in order.
+ * Pull this tool's calls out of a session's messages, in order.
  *
  * Both halves use it, which is why it lives here: the server replays the history
- * on every call instead of keeping state, and the TUI replays it to render. The
- * history is the single source of truth for the list.
+ * when a session is first touched, and the TUI replays it to render. The history
+ * is the single source of truth for the list.
  *
- * The input is typed `unknown` because it comes straight from the host: the
- * shape is validated here rather than trusted. A `MessageLike` is what it looks
- * like when well formed.
+ * The input is typed `unknown` because it comes straight from the host: the shape
+ * is validated here rather than trusted.
  */
-export function toolResultsFrom(messages: readonly unknown[], toolName: string): ToolResultLike[] {
-  const results: ToolResultLike[] = []
+export function todoEventsFrom(messages: readonly unknown[], toolName: string): TodoEvent[] {
+  const events: TodoEvent[] = []
 
   for (const message of messages) {
     if (!isRecord(message)) continue
@@ -185,35 +223,58 @@ export function toolResultsFrom(messages: readonly unknown[], toolName: string):
 
     for (const part of message.content) {
       if (!isRecord(part)) continue
-      if (part.type !== "tool" || part.name !== toolName) continue
+      if (part.type !== "tool") continue
 
       const state = part.state
       if (!isRecord(state)) continue
+      if (state.status !== "completed") continue
 
-      results.push({
-        name: toolName,
-        status: typeof state.status === "string" ? state.status : "unknown",
-        metadata: state.metadata,
-      })
+      if (part.name === toolName) {
+        const snapshot = readSnapshot(state.metadata)
+        if (snapshot !== null) {
+          events.push({ snapshot, actions: [] })
+          continue
+        }
+
+        // No snapshot: fall back to the arguments it was called with.
+        const action = parseInput(state.input)
+        if (action !== null) events.push({ snapshot: null, actions: [action] })
+        continue
+      }
+
+      // Code Mode runs other tools inside itself: the wrapper keeps no tool part
+      // of its own for them, so the calls are read out of its metadata instead.
+      if (part.name === CODE_MODE_TOOL) {
+        const actions = nestedActions(state.metadata, toolName)
+        if (actions.length > 0) events.push({ snapshot: null, actions })
+      }
     }
   }
 
-  return results
+  return events
 }
 
-/** Rebuild the list from the message history: the last completed call wins. */
-export function replayTodo(results: readonly ToolResultLike[], toolName: string): TodoState | null {
-  for (let index = results.length - 1; index >= 0; index -= 1) {
-    const result = results[index]
-    if (result === undefined) continue
-    if (result.name !== toolName) continue
-    if (result.status !== "completed") continue
+/**
+ * Rebuild the list from the recorded calls.
+ *
+ * A snapshot wins wherever one exists, because it is the frozen record the tool
+ * wrote. Where there is none (a call reached through Code Mode) the actions are
+ * folded in order onto the state so far, which lands on the same result because
+ * the state machine is deterministic.
+ */
+export function replayTodo(events: readonly TodoEvent[]): TodoState {
+  let state = EMPTY_TODO
 
-    const snapshot = readSnapshot(result.metadata)
-    if (snapshot !== null) return snapshot
+  for (const event of events) {
+    if (event.snapshot !== null) {
+      state = event.snapshot
+      continue
+    }
+
+    for (const action of event.actions) state = applyTodo(state, action)
   }
 
-  return null
+  return state
 }
 
 /** What the count line shows: progress, or an explicit empty state. */

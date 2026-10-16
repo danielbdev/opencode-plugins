@@ -10,7 +10,7 @@ import {
   formatSummary,
   replayTodo,
   summaryFeedback,
-  toolResultsFrom,
+  todoEventsFrom,
   visibleItems,
   type FeedbackKind,
 } from "./core/todo.ts"
@@ -85,7 +85,7 @@ export default Plugin.define({
         if (!root) return EMPTY_TODO
 
         const messages = context.data.session.message.list(root)
-        return replayTodo(toolResultsFrom(messages, TODO_TOOL_NAME), TODO_TOOL_NAME) ?? EMPTY_TODO
+        return replayTodo(todoEventsFrom(messages, TODO_TOOL_NAME))
       })
 
       return (

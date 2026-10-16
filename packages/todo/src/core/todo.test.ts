@@ -13,14 +13,43 @@ import {
   readSnapshot,
   replayTodo,
   summaryFeedback,
-  toolResultsFrom,
+  todoEventsFrom,
   visibleItems,
+  type TodoInput,
   type TodoState,
-  type ToolResultLike,
 } from "./todo.ts"
 
-function snapshotOf(state: TodoState): ToolResultLike {
-  return { name: "todo", status: "completed", metadata: { [TODO_METADATA_KEY]: state } }
+/** A first-class call to the tool: its own part, carrying the snapshot it wrote. */
+function callMessage(state: TodoState): unknown {
+  return {
+    type: "assistant",
+    content: [
+      {
+        type: "tool",
+        name: "todo",
+        state: { status: "completed", input: {}, metadata: { [TODO_METADATA_KEY]: state } },
+      },
+    ],
+  }
+}
+
+/** A call reached through Code Mode: no part of its own, only the wrapper's record. */
+function codeModeMessage(actions: readonly TodoInput[]): unknown {
+  return {
+    type: "assistant",
+    content: [
+      {
+        type: "tool",
+        name: "execute",
+        state: {
+          status: "completed",
+          metadata: {
+            toolCalls: actions.map((input) => ({ tool: "todo", status: "completed", input })),
+          },
+        },
+      },
+    ],
+  }
 }
 
 test("write replaces the list and assigns stable ids", () => {
@@ -76,26 +105,50 @@ test("readSnapshot accepts a well-formed snapshot and rejects anything else", ()
   assert.equal(readSnapshot({ [TODO_METADATA_KEY]: { items: [{ id: 1, text: 2 }], nextId: 1 } }), null)
 })
 
-test("replayTodo takes the last completed call of that tool", () => {
+test("replayTodo applies a snapshot where one exists and folds the actions where it does not", () => {
   const older = applyTodo(EMPTY_TODO, { action: "write", items: ["old"] })
   const newer = applyTodo(EMPTY_TODO, { action: "write", items: ["new"] })
 
-  const results: ToolResultLike[] = [
-    snapshotOf(older),
-    { name: "read", status: "completed", metadata: {} },
-    snapshotOf(newer),
-  ]
-
-  assert.deepEqual(replayTodo(results, "todo"), newer)
+  const events = todoEventsFrom([callMessage(older), callMessage(newer)], "todo")
+  assert.deepEqual(replayTodo(events), newer)
 })
 
-test("replayTodo skips unfinished and errored calls, and returns null when there is nothing", () => {
+test("replayTodo rebuilds the same state from a Code Mode call, which carries no snapshot", () => {
+  const actions: TodoInput[] = [
+    { action: "write", items: ["a", "b"] },
+    { action: "update", id: "2", status: "in_progress" },
+    { action: "update", id: "1", status: "completed" },
+  ]
+
+  const events = todoEventsFrom([codeModeMessage(actions)], "todo")
+  assert.deepEqual(replayTodo(events), applyTodo(applyTodo(applyTodo(EMPTY_TODO, actions[0]!), actions[1]!), actions[2]!))
+})
+
+test("replayTodo mixes both shapes in order", () => {
+  const fromCode = todoEventsFrom([codeModeMessage([{ action: "write", items: ["nested"] }])], "todo")
+  const fromPart = todoEventsFrom([callMessage(applyTodo(EMPTY_TODO, { action: "write", items: ["direct"] }))], "todo")
+
+  assert.deepEqual(replayTodo([...fromCode, ...fromPart]).items.map((item) => item.text), ["direct"])
+  assert.deepEqual(replayTodo([...fromPart, ...fromCode]).items.map((item) => item.text), ["nested"])
+})
+
+test("replayTodo ignores unfinished, errored and unrelated calls", () => {
   const state = applyTodo(EMPTY_TODO, { action: "write", items: ["a"] })
 
-  assert.equal(replayTodo([], "todo"), null)
-  assert.equal(replayTodo([{ name: "todo", status: "running", metadata: { [TODO_METADATA_KEY]: state } }], "todo"), null)
-  assert.equal(replayTodo([{ name: "todo", status: "error", metadata: { [TODO_METADATA_KEY]: state } }], "todo"), null)
-  assert.equal(replayTodo([snapshotOf(state)], "otro"), null)
+  assert.deepEqual(replayTodo([]), EMPTY_TODO)
+  assert.deepEqual(
+    replayTodo(
+      todoEventsFrom(
+        [
+          { type: "assistant", content: [{ type: "tool", name: "todo", state: { status: "running", metadata: { [TODO_METADATA_KEY]: state } } }] },
+          { type: "assistant", content: [{ type: "tool", name: "todo", state: { status: "error", metadata: { [TODO_METADATA_KEY]: state } } }] },
+          { type: "assistant", content: [{ type: "tool", name: "read", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: state } } }] },
+        ],
+        "todo",
+      ),
+    ),
+    EMPTY_TODO,
+  )
 })
 
 test("formatSummary reports progress and has an explicit empty state", () => {
@@ -154,57 +207,49 @@ test("summaryFeedback reports the worst state present", () => {
   assert.equal(summaryFeedback(allDone), "success")
 })
 
-test("toolResultsFrom pulls this tool's results out of the assistant messages, in order", () => {
+test("todoEventsFrom records only completed calls to this tool, in order", () => {
   const state = applyTodo(EMPTY_TODO, { action: "write", items: ["a"] })
 
-  const messages = [
-    { type: "user", content: [] },
-    {
-      type: "assistant",
-      content: [
-        { type: "text", text: "thinking" },
-        { type: "tool", name: "todo", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: state } } },
-        { type: "tool", name: "read", state: { status: "completed", metadata: {} } },
-      ],
-    },
-    {
-      type: "assistant",
-      content: [{ type: "tool", name: "todo", state: { status: "running", metadata: {} } }],
-    },
-  ]
-
-  const results = toolResultsFrom(messages, "todo")
-  assert.deepEqual(
-    results.map((result) => result.status),
-    ["completed", "running"],
+  const events = todoEventsFrom(
+    [
+      { type: "user", content: [] },
+      {
+        type: "assistant",
+        content: [
+          { type: "text", text: "thinking" },
+          { type: "tool", name: "todo", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: state } } },
+          { type: "tool", name: "read", state: { status: "completed", metadata: {} } },
+        ],
+      },
+      {
+        type: "assistant",
+        content: [{ type: "tool", name: "todo", state: { status: "running", metadata: {} } }],
+      },
+    ],
+    "todo",
   )
+
+  assert.equal(events.length, 1)
+  assert.deepEqual(events[0]?.snapshot, state)
 })
 
-test("toolResultsFrom survives malformed messages and parts", () => {
-  assert.deepEqual(toolResultsFrom([], "todo"), [])
-  assert.deepEqual(toolResultsFrom([null, { type: "assistant" }], "todo"), [])
+test("todoEventsFrom survives malformed messages and parts", () => {
+  assert.deepEqual(todoEventsFrom([], "todo"), [])
+  assert.deepEqual(todoEventsFrom([null, { type: "assistant" }], "todo"), [])
   assert.deepEqual(
-    toolResultsFrom([{ type: "assistant", content: [null, "x", { type: "tool" }, { type: "tool", name: "todo" }] }], "todo"),
+    todoEventsFrom(
+      [{ type: "assistant", content: [null, "x", { type: "tool" }, { type: "tool", name: "todo" }] }],
+      "todo",
+    ),
     [],
   )
-})
-
-test("messages replay end to end: the last completed call wins", () => {
-  const older = applyTodo(EMPTY_TODO, { action: "write", items: ["old"] })
-  const newer = applyTodo(EMPTY_TODO, { action: "write", items: ["new"] })
-
-  const messages = [
-    {
-      type: "assistant",
-      content: [{ type: "tool", name: "todo", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: older } } }],
-    },
-    {
-      type: "assistant",
-      content: [{ type: "tool", name: "todo", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: newer } } }],
-    },
-  ]
-
-  assert.deepEqual(replayTodo(toolResultsFrom(messages, "todo"), "todo"), newer)
+  assert.deepEqual(
+    todoEventsFrom(
+      [{ type: "assistant", content: [{ type: "tool", name: "execute", state: { status: "completed" } }] }],
+      "todo",
+    ),
+    [],
+  )
 })
 
 test("isForeignTaskTool recognizes a task list that belongs to another plugin", () => {

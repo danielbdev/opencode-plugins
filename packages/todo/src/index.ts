@@ -10,7 +10,7 @@ import {
   formatSummary,
   isForeignTaskTool,
   replayTodo,
-  toolResultsFrom,
+  todoEventsFrom,
   type TodoInput,
   type TodoState,
 } from "./core/todo.ts"
@@ -100,7 +100,7 @@ export default Plugin.define({
           let current = states.get(sessionID)
           if (current === undefined) {
             const messages = await ctx.session.context({ sessionID })
-            current = replayTodo(toolResultsFrom(messages, TODO_TOOL_NAME), TODO_TOOL_NAME) ?? EMPTY_TODO
+            current = replayTodo(todoEventsFrom(messages, TODO_TOOL_NAME))
           }
 
           const next = applyTodo(current, input as TodoInput)
