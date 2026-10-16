@@ -11,6 +11,7 @@ import {
   readSnapshot,
   replayTodo,
   summaryFeedback,
+  toolResultsFrom,
   visibleItems,
   type TodoState,
   type ToolResultLike,
@@ -149,4 +150,57 @@ test("summaryFeedback reports the worst state present", () => {
     { action: "update", id: "2", status: "completed" },
   )
   assert.equal(summaryFeedback(allDone), "success")
+})
+
+test("toolResultsFrom pulls this tool's results out of the assistant messages, in order", () => {
+  const state = applyTodo(EMPTY_TODO, { action: "write", items: ["a"] })
+
+  const messages = [
+    { type: "user", content: [] },
+    {
+      type: "assistant",
+      content: [
+        { type: "text", text: "thinking" },
+        { type: "tool", name: "todo", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: state } } },
+        { type: "tool", name: "read", state: { status: "completed", metadata: {} } },
+      ],
+    },
+    {
+      type: "assistant",
+      content: [{ type: "tool", name: "todo", state: { status: "running", metadata: {} } }],
+    },
+  ]
+
+  const results = toolResultsFrom(messages, "todo")
+  assert.deepEqual(
+    results.map((result) => result.status),
+    ["completed", "running"],
+  )
+})
+
+test("toolResultsFrom survives malformed messages and parts", () => {
+  assert.deepEqual(toolResultsFrom([], "todo"), [])
+  assert.deepEqual(toolResultsFrom([null, { type: "assistant" }], "todo"), [])
+  assert.deepEqual(
+    toolResultsFrom([{ type: "assistant", content: [null, "x", { type: "tool" }, { type: "tool", name: "todo" }] }], "todo"),
+    [],
+  )
+})
+
+test("messages replay end to end: the last completed call wins", () => {
+  const older = applyTodo(EMPTY_TODO, { action: "write", items: ["old"] })
+  const newer = applyTodo(EMPTY_TODO, { action: "write", items: ["new"] })
+
+  const messages = [
+    {
+      type: "assistant",
+      content: [{ type: "tool", name: "todo", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: older } } }],
+    },
+    {
+      type: "assistant",
+      content: [{ type: "tool", name: "todo", state: { status: "completed", metadata: { [TODO_METADATA_KEY]: newer } } }],
+    },
+  ]
+
+  assert.deepEqual(replayTodo(toolResultsFrom(messages, "todo"), "todo"), newer)
 })

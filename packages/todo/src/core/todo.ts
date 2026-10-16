@@ -130,6 +130,49 @@ export interface ToolResultLike {
   readonly metadata?: unknown
 }
 
+/** The slice of a session message the extraction needs. */
+export interface MessageLike {
+  readonly type?: string
+  readonly content?: readonly unknown[]
+}
+
+/**
+ * Pull this tool's results out of a session's messages, in order.
+ *
+ * Both halves use it, which is why it lives here: the server replays the history
+ * on every call instead of keeping state, and the TUI replays it to render. The
+ * history is the single source of truth for the list.
+ *
+ * The input is typed `unknown` because it comes straight from the host: the
+ * shape is validated here rather than trusted. A `MessageLike` is what it looks
+ * like when well formed.
+ */
+export function toolResultsFrom(messages: readonly unknown[], toolName: string): ToolResultLike[] {
+  const results: ToolResultLike[] = []
+
+  for (const message of messages) {
+    if (!isRecord(message)) continue
+    if (message.type !== "assistant") continue
+    if (!Array.isArray(message.content)) continue
+
+    for (const part of message.content) {
+      if (!isRecord(part)) continue
+      if (part.type !== "tool" || part.name !== toolName) continue
+
+      const state = part.state
+      if (!isRecord(state)) continue
+
+      results.push({
+        name: toolName,
+        status: typeof state.status === "string" ? state.status : "unknown",
+        metadata: state.metadata,
+      })
+    }
+  }
+
+  return results
+}
+
 /** Rebuild the list from the message history: the last completed call wins. */
 export function replayTodo(results: readonly ToolResultLike[], toolName: string): TodoState | null {
   for (let index = results.length - 1; index >= 0; index -= 1) {
