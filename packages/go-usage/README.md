@@ -34,7 +34,7 @@ Two entrypoints in one package:
 
 | Entrypoint | Role |
 | ---------- | ---- |
-| `src/index.ts` (`@opencode/plugin`) | Server plugin. Resolves the `opencode-go` credential, reads the usage endpoint with a 5-minute cache, and publishes the snapshot over RPC. |
+| `src/index.ts` (`@opencode/plugin`) | Server plugin. Resolves the `opencode-go` credential, reads the usage endpoint with a 5-minute cache, re-reads once a settled turn has moved usage, and publishes the snapshot over RPC. |
 | `src/tui.tsx` (`@opencode/plugin/tui`) | TUI plugin. Renders the sidebar section and the `/usage` command. |
 
 The credential never leaves the server process. The TUI plugin **cannot** read a credential — the
@@ -63,7 +63,9 @@ This endpoint is **live but undocumented**. Two consequences the code respects:
 - Because the endpoint can change without notice, every failure degrades to an explicit state
   (`Usage unavailable: ...`) instead of breaking the TUI.
 
-The plugin mirrors the endpoint exactly; its own 5-minute cache is the only staleness it can add.
+The plugin mirrors the endpoint exactly. The 5-minute cache bounds how stale a background reading can
+be; a settled turn re-reads sooner, throttled to at most one read per minute so rapid turns cannot hammer
+the endpoint.
 
 ## Security
 
