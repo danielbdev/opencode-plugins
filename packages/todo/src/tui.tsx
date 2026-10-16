@@ -5,13 +5,13 @@ import { createMemo, createSignal, onCleanup } from "solid-js"
 import {
   EMPTY_TODO,
   TODO_TOOL_NAME,
-  feedbackOf,
   formatItem,
   formatSummary,
   replayTodo,
-  summaryFeedback,
+  summaryTone,
   todoEventsFrom,
-  type FeedbackKind,
+  toneOf,
+  type TodoTone,
 } from "./core/todo.ts"
 
 /** A safety net for reads that no event announced; the events do the real work. */
@@ -22,14 +22,13 @@ const TICK_MS = 10_000
  * (`FeedbackKind = error | warning | success | info`), so the section follows
  * whatever theme is active instead of naming a colour here.
  */
-function feedbackColor(context: Plugin.Context, kind: FeedbackKind): string {
-  const feedback = (
-    context.theme as unknown as
-      | { text?: { feedback?: Record<string, { base?: unknown } | undefined> } }
-      | undefined
-  )?.text?.feedback
+function toneColor(context: Plugin.Context, tone: TodoTone): string {
+  const text = (context.theme as unknown as { text?: Record<string, unknown> } | undefined)?.text
+  if (tone === "muted") return (text?.["muted"] ?? "gray") as string
 
-  return (feedback?.[kind]?.base ?? "white") as string
+  const feedback = (text as { feedback?: Record<string, { base?: unknown } | undefined> } | undefined)
+    ?.feedback
+  return (feedback?.[tone]?.base ?? "white") as string
 }
 
 function titleColor(context: Plugin.Context): string {
@@ -90,9 +89,9 @@ export default Plugin.define({
       return (
         <box flexDirection="column">
           <text fg={titleColor(context)}>To-do</text>
-          <text fg={feedbackColor(context, summaryFeedback(state()))}>{formatSummary(state())}</text>
+          <text fg={toneColor(context, summaryTone(state()))}>{formatSummary(state())}</text>
           {state().items.map((item) => (
-            <text fg={feedbackColor(context, feedbackOf(item.status))}>{formatItem(item)}</text>
+            <text fg={toneColor(context, toneOf(item.status))}>{formatItem(item)}</text>
           ))}
         </box>
       )

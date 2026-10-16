@@ -6,14 +6,14 @@ import {
   TODO_METADATA_KEY,
   TODO_TOOL_DESCRIPTION,
   applyTodo,
-  feedbackOf,
   formatItem,
   formatSummary,
   isForeignTaskTool,
   readSnapshot,
   replayTodo,
-  summaryFeedback,
+  summaryTone,
   todoEventsFrom,
+  toneOf,
   type TodoInput,
   type TodoState,
 } from "./todo.ts"
@@ -170,27 +170,27 @@ test("formatItem marks every status", () => {
   assert.equal(formatItem({ id: "4", text: "d", status: "cancelled" }), "[-] d")
 })
 
-test("feedbackOf maps every status onto a theme feedback kind", () => {
-  assert.equal(feedbackOf("pending"), "info")
-  assert.equal(feedbackOf("in_progress"), "warning")
-  assert.equal(feedbackOf("completed"), "success")
-  assert.equal(feedbackOf("cancelled"), "info")
+test("toneOf maps every status onto a theme slot", () => {
+  assert.equal(toneOf("pending"), "muted")
+  assert.equal(toneOf("in_progress"), "warning")
+  assert.equal(toneOf("completed"), "success")
+  assert.equal(toneOf("cancelled"), "muted")
 })
 
-test("summaryFeedback reports the worst state present", () => {
-  assert.equal(summaryFeedback(EMPTY_TODO), "info")
+test("summaryTone reports the loudest state present", () => {
+  assert.equal(summaryTone(EMPTY_TODO), "muted")
 
   const state = applyTodo(EMPTY_TODO, { action: "write", items: ["a", "b"] })
-  assert.equal(summaryFeedback(state), "info")
+  assert.equal(summaryTone(state), "muted")
 
   const running = applyTodo(state, { action: "update", id: "1", status: "in_progress" })
-  assert.equal(summaryFeedback(running), "warning")
+  assert.equal(summaryTone(running), "warning")
 
   const allDone = applyTodo(
     applyTodo(state, { action: "update", id: "1", status: "completed" }),
     { action: "update", id: "2", status: "completed" },
   )
-  assert.equal(summaryFeedback(allDone), "success")
+  assert.equal(summaryTone(allDone), "success")
 })
 
 test("todoEventsFrom records only completed calls to this tool, in order", () => {

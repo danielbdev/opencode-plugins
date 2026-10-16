@@ -292,15 +292,19 @@ export function formatItem(item: TodoItem): string {
   return `[ ] ${item.text}`
 }
 
-export function feedbackOf(status: TodoStatus): FeedbackKind {
+/** The theme slots this list uses. There is no failure colour: a to-do cannot fail. */
+export type TodoTone = "muted" | "warning" | "success"
+
+/** Pending and cancelled are muted: neither is work in flight. */
+export function toneOf(status: TodoStatus): TodoTone {
   if (status === "in_progress") return "warning"
   if (status === "completed") return "success"
-  return "info"
+  return "muted"
 }
 
-/** The count line takes the worst state present: running work outranks a finished list. */
-export function summaryFeedback(state: TodoState): FeedbackKind {
+/** The count line takes the loudest state present, and stays muted when nothing is moving. */
+export function summaryTone(state: TodoState): TodoTone {
   if (state.items.some((item) => item.status === "in_progress")) return "warning"
   if (state.items.length > 0 && state.items.every((item) => item.status === "completed")) return "success"
-  return "info"
+  return "muted"
 }
