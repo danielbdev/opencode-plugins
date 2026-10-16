@@ -9,8 +9,9 @@ on:
 
 # id-token: write is what lets the job exchange a GitHub OIDC token for a
 # short-lived npm publish credential. No npm token is stored in the repository.
+# contents: write is only used at the end, to open the release page for the tag.
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -70,3 +71,14 @@ jobs:
       # Provenance attestations are generated automatically for a public package
       # published from a public repository through trusted publishing.
       - run: npm publish -w "${{ steps.target.outputs.name }}" --access public
+
+      # A tag with no release page is a version nobody can ask about. The notes
+      # are generated from the commits since the previous release; edit them
+      # afterwards when the list is broader than the package being released.
+      - name: Open the release page for the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="${{ steps.target.outputs.name }} ${GITHUB_REF_NAME##*@}"
+          gh release create "$GITHUB_REF_NAME" --title "$TITLE" --generate-notes

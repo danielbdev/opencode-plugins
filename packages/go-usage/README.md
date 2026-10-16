@@ -127,6 +127,10 @@ The workflow checks that the tag matches the version in the manifest, so a misty
 instead of publishing the wrong thing. It runs the tests and the typecheck before publishing, and npm
 attaches a provenance attestation automatically because the repository and the package are public.
 
+After a successful publish the workflow opens a **release page for the tag**, with notes generated from the
+commits since the previous release. That is where "what changed in this version" gets answered; edit the
+notes afterwards when the generated list is broader than the package being released.
+
 Versions are **independent per package**: touching one plugin never forces a release of another.
 
 The repository root stays at `0.0.0` and is never published; it only holds the workspace configuration.
