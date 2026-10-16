@@ -36,13 +36,16 @@ so the model reads the state back from the call it just made.
 
 ### Where the list lives
 
-**In the session history, not in plugin memory.** Every tool result carries the whole snapshot, so the
-server replays the last one on every call instead of keeping state, and the TUI replays it to render.
-Nothing is persisted by the plugin, a server restart loses nothing, and a reload or a session switch
-reconstructs the list exactly.
+**The session history is the durable record, and a cache closes the gap inside a turn.** Every tool result
+carries the whole snapshot, so nothing is lost on a reload, a session switch or a restart.
 
-The tradeoff, stated plainly: each tool call reads the session history. That is an in-process read, not a
-network call, and it happens a handful of times per session.
+The cache exists for a reason worth stating: a tool result only lands in the history once the turn that
+produced it is committed, so a second call in the same turn would replay a history that does not contain the
+first one yet and lose the list. The server therefore keeps a per-session state, seeded from the history the
+first time a session is touched, and a restart loses nothing because the next call seeds itself again.
+
+The tradeoff, stated plainly: the first call of a session reads that session's history. It is an in-process
+read, not a network call, and it happens once per session.
 
 ### Why the instruction is fixed text
 
