@@ -51,17 +51,32 @@ export default Plugin.define({
     const TodoSection = (props: { sessionID: string }) => {
       const [tick, setTick] = createSignal(0)
 
-      const timer = setInterval(() => setTick((value) => value + 1), TICK_MS)
-      onCleanup(() => clearInterval(timer))
+      // The message collection is a cached snapshot: reading it without syncing
+      // returns whatever was loaded at mount, which is why the section needs to
+      // ask again and re-read only after the refresh lands.
+      let syncing = false
+      const refresh = () => {
+        if (syncing) return
+        syncing = true
+        void context.data.session.message
+          .sync(props.sessionID)
+          .then(() => setTick((value) => value + 1))
+          .catch(() => {})
+          .finally(() => {
+            syncing = false
+          })
+      }
 
-      // The message collection may not be loaded yet on first render; asking
-      // once is cheap and the events keep it current afterwards.
-      void context.data.session.message.sync(props.sessionID).catch(() => {})
+      refresh()
 
       const stopEvents = context.data.listen(({ details }) => {
-        if (details.type.startsWith("session.")) setTick((value) => value + 1)
+        if (details.type.startsWith("session.")) refresh()
       })
       onCleanup(() => stopEvents())
+
+      // A slow safety net for anything no event announced.
+      const timer = setInterval(refresh, TICK_MS)
+      onCleanup(() => clearInterval(timer))
 
       const state = createMemo(() => {
         tick()
