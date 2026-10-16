@@ -26,7 +26,7 @@
  * (bump this line alongside the manifest) instead of adding a JSON import to
  * the server plugin's load path.
  */
-export const USER_AGENT = "opencode-go-usage/0.1.2"
+export const USER_AGENT = "opencode-go-usage/0.1.3"
 
 export const WINDOW_KEYS = ["rolling", "weekly", "monthly"] as const
 
