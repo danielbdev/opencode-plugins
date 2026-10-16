@@ -68,14 +68,19 @@ function render(state: TodoState): string {
 /**
  * Server half.
  *
- * It keeps **no state**: every call replays the list out of the session history,
- * applies the action and returns the new snapshot in the result metadata. The
- * history is the single source of truth, so a server restart loses nothing and
- * the TUI reads exactly the same data.
+ * The session history is the durable record, but it is not enough on its own: a
+ * tool result only lands in the history once the turn that produced it is
+ * committed, so a second call in the same turn would replay a history that does
+ * not contain the first one yet and lose the list. The cache below closes that
+ * gap: it is seeded from the history the first time a session is touched, and
+ * every call updates it. A server restart loses nothing, because the next call
+ * seeds itself from the history again.
  */
 export default Plugin.define({
   id: "opencode-todo.server",
   async setup(ctx) {
+    const states = new Map<string, TodoState>()
+
     const tool = await ctx.tool.transform((editor) => {
       editor.add({
         name: TODO_TOOL_NAME,
@@ -83,10 +88,16 @@ export default Plugin.define({
           "Set and maintain the plan for the task at hand. write replaces the list with the given items, update changes one item's status by id, clear empties it. Call it whenever the plan changes so the user can follow along. Returns the full list.",
         input: INPUT_SCHEMA,
         execute: async (input, context) => {
-          const messages = await ctx.session.context({ sessionID: context.sessionID })
-          const current =
-            replayTodo(toolResultsFrom(messages, TODO_TOOL_NAME), TODO_TOOL_NAME) ?? EMPTY_TODO
+          const sessionID = context.sessionID
+
+          let current = states.get(sessionID)
+          if (current === undefined) {
+            const messages = await ctx.session.context({ sessionID })
+            current = replayTodo(toolResultsFrom(messages, TODO_TOOL_NAME), TODO_TOOL_NAME) ?? EMPTY_TODO
+          }
+
           const next = applyTodo(current, input as TodoInput)
+          states.set(sessionID, next)
 
           return {
             content: render(next),
