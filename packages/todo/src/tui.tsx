@@ -22,6 +22,7 @@ const TICK_MS = 10_000
  */
 function toneColor(context: Plugin.Context, tone: TodoTone): string {
   const text = (context.theme as unknown as { text?: Record<string, unknown> } | undefined)?.text
+  if (tone === "base") return (text?.["base"] ?? "white") as string
   if (tone === "muted") return (text?.["muted"] ?? "gray") as string
 
   const feedback = (text as { feedback?: Record<string, { base?: unknown } | undefined> } | undefined)
@@ -97,7 +98,7 @@ export default Plugin.define({
           ) : (
             lists().map((list) => (
               <box flexDirection="column">
-                <text fg={list.root ? toneColor(context, summaryTone(list.state)) : titleColor(context)}>
+                <text fg={toneColor(context, summaryTone(list.state))}>
                   {list.root
                     ? formatSummary(list.state)
                     : `${list.agent ?? "subagent"} · ${formatSummary(list.state)}`}

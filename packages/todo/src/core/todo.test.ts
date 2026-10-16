@@ -201,20 +201,21 @@ test("toneOf maps every status onto a theme slot", () => {
   assert.equal(toneOf("cancelled"), "muted")
 })
 
-test("summaryTone reports the loudest state present", () => {
-  assert.equal(summaryTone(EMPTY_TODO), "muted")
+test("summaryTone is loud only while something is in flight", () => {
+  assert.equal(summaryTone(EMPTY_TODO), "base")
 
   const state = applyTodo(EMPTY_TODO, { action: "write", items: ["a", "b"] })
-  assert.equal(summaryTone(state), "muted")
+  assert.equal(summaryTone(state), "base")
 
   const running = applyTodo(state, { action: "update", id: "1", status: "in_progress" })
   assert.equal(summaryTone(running), "warning")
 
+  // Finished is not a celebration: the items carry the green, the header does not.
   const allDone = applyTodo(
     applyTodo(state, { action: "update", id: "1", status: "completed" }),
     { action: "update", id: "2", status: "completed" },
   )
-  assert.equal(summaryTone(allDone), "success")
+  assert.equal(summaryTone(allDone), "base")
 })
 
 test("todoEventsFrom records only completed calls to this tool, in order", () => {

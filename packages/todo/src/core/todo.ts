@@ -293,7 +293,7 @@ export function formatItem(item: TodoItem): string {
 }
 
 /** The theme slots this list uses. There is no failure colour: a to-do cannot fail. */
-export type TodoTone = "muted" | "warning" | "success"
+export type TodoTone = "base" | "muted" | "warning" | "success"
 
 /** One session's list, with the agent that owns it. */
 export interface AgentList {
@@ -344,9 +344,12 @@ export function toneOf(status: TodoStatus): TodoTone {
   return "muted"
 }
 
-/** The count line takes the loudest state present, and stays muted when nothing is moving. */
+/**
+ * A header is loud only while something is in flight, and takes the base colour
+ * otherwise. It deliberately does not turn green when the list is finished: a
+ * completed plan is not a celebration, and the items already carry that colour.
+ */
 export function summaryTone(state: TodoState): TodoTone {
   if (state.items.some((item) => item.status === "in_progress")) return "warning"
-  if (state.items.length > 0 && state.items.every((item) => item.status === "completed")) return "success"
-  return "muted"
+  return "base"
 }
