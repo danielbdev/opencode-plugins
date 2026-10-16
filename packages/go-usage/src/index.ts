@@ -1,5 +1,6 @@
 import { Plugin } from "@opencode/plugin"
 
+import { createResyncGate } from "./core/resync.ts"
 import { errorSnapshot, parseUsage, USER_AGENT, type UsageSnapshot } from "./core/usage.ts"
 import { UsageRpc } from "./rpc.ts"
 
@@ -9,6 +10,9 @@ const USAGE_URL = "https://opencode.ai/inference/go/v1/usage"
 /** Usage moves slowly; the endpoint is undocumented, so we stay conservative. */
 const REFRESH_MS = 5 * 60_000
 const REQUEST_TIMEOUT_MS = 10_000
+
+/** A settled turn moves usage; re-read on that signal, at most once per minute. */
+const RESYNC_MIN_MS = 60_000
 
 /**
  * Server plugin.
@@ -104,7 +108,25 @@ export default Plugin.define({
       void refresh()
     }, REFRESH_MS)
 
+    // A settled turn is when usage actually moves, and the cache lives in this
+    // half, so the trigger belongs here: the refreshed snapshot goes out over
+    // `updated` and the TUI keeps working unchanged. The gate keeps quick
+    // successive turns from hammering an undocumented endpoint.
+    const controller = new AbortController()
+    const allowed = createResyncGate(RESYNC_MIN_MS)
+
+    void (async () => {
+      for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+        if (event.type !== "session.execution.succeeded") continue
+        if (!allowed()) continue
+        void refresh()
+      }
+    })().catch(() => {
+      // A closed subscription is not a reason to fail the plugin.
+    })
+
     return () => {
+      controller.abort()
       clearInterval(timer)
     }
   },
