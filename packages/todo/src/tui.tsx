@@ -91,13 +91,13 @@ export default Plugin.define({
 
       return (
         <box flexDirection="column">
-          <text fg={titleColor(context)}>To-do</text>
+          <text fg={titleColor(context)}>TO-DO</text>
           {lists().length === 0 ? (
             <text fg={toneColor(context, "muted")}>no tasks yet</text>
           ) : (
             lists().map((list) => (
               <box flexDirection="column">
-                <text fg={toneColor(context, list.root ? summaryTone(list.state) : "muted")}>
+                <text fg={list.root ? toneColor(context, summaryTone(list.state)) : titleColor(context)}>
                   {list.root
                     ? formatSummary(list.state)
                     : `${list.agent ?? "subagent"} · ${formatSummary(list.state)}`}
@@ -105,6 +105,7 @@ export default Plugin.define({
                 {list.state.items.map((item) => (
                   <text fg={toneColor(context, toneOf(item.status))}>{formatItem(item)}</text>
                 ))}
+                <text> </text>
               </box>
             ))
           )}
