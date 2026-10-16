@@ -4,10 +4,12 @@ import assert from "node:assert/strict"
 import {
   EMPTY_TODO,
   TODO_METADATA_KEY,
+  TODO_TOOL_DESCRIPTION,
   applyTodo,
   feedbackOf,
   formatItem,
   formatSummary,
+  isForeignTaskTool,
   readSnapshot,
   replayTodo,
   summaryFeedback,
@@ -203,4 +205,21 @@ test("messages replay end to end: the last completed call wins", () => {
   ]
 
   assert.deepEqual(replayTodo(toolResultsFrom(messages, "todo"), "todo"), newer)
+})
+
+test("isForeignTaskTool recognizes a task list that belongs to another plugin", () => {
+  // Ours, told apart by its description rather than by its name, because our own
+  // registration is still listed when the plugin reloads.
+  assert.equal(isForeignTaskTool({ name: "todo", description: TODO_TOOL_DESCRIPTION }), false)
+  assert.equal(isForeignTaskTool({ name: "todowrite", description: TODO_TOOL_DESCRIPTION }), false)
+
+  // A conventional task name carrying someone else's description is theirs.
+  assert.equal(isForeignTaskTool({ name: "todo", description: "Manage the plan" }), true)
+  assert.equal(isForeignTaskTool({ name: "todowrite", description: "Write todos" }), true)
+  assert.equal(isForeignTaskTool({ name: "todos", description: "Anything at all" }), true)
+
+  // Not a task list, whatever it is called or says. `task` is the subagent tool.
+  assert.equal(isForeignTaskTool({ name: "read", description: "Read a file" }), false)
+  assert.equal(isForeignTaskTool({ name: "task", description: "Run a subagent" }), false)
+  assert.equal(isForeignTaskTool({ name: "todo", description: "" }), true)
 })

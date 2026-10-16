@@ -3,10 +3,12 @@ import { Plugin } from "@opencode/plugin"
 import {
   EMPTY_TODO,
   TODO_METADATA_KEY,
+  TODO_TOOL_DESCRIPTION,
   TODO_TOOL_NAME,
   applyTodo,
   formatItem,
   formatSummary,
+  isForeignTaskTool,
   replayTodo,
   toolResultsFrom,
   type TodoInput,
@@ -79,13 +81,18 @@ function render(state: TodoState): string {
 export default Plugin.define({
   id: "opencode-todo.server",
   async setup(ctx) {
+    // Another plugin already gives the agent a task list: step aside completely,
+    // registering nothing and injecting nothing, so nobody ends up with two
+    // competing plans and two instructions telling the model to use both.
+    const registered = await ctx.tool.list()
+    if (registered.some(isForeignTaskTool)) return
+
     const states = new Map<string, TodoState>()
 
     const tool = await ctx.tool.transform((editor) => {
       editor.add({
         name: TODO_TOOL_NAME,
-        description:
-          "Set and maintain the plan for the task at hand. write replaces the list with the given items, update changes one item's status by id, clear empties it. Call it whenever the plan changes so the user can follow along. Returns the full list.",
+        description: TODO_TOOL_DESCRIPTION,
         input: INPUT_SCHEMA,
         execute: async (input, context) => {
           const sessionID = context.sessionID
@@ -109,7 +116,15 @@ export default Plugin.define({
 
     // The plugin tells the model the tool exists, so installing it is the whole
     // setup: nothing is written into any AGENTS.md, in this project or any other.
+    // The request is checked again because a plugin that loads after this one was
+    // not visible in the check above, and would otherwise get a second instruction.
     const instruction = await ctx.session.hook("context", (event) => {
+      const available = Object.entries(event.tools).map(([name, tool]) => ({
+        name,
+        description: tool.description,
+      }))
+      if (available.some(isForeignTaskTool)) return
+
       event.system.push({ type: "text", text: INSTRUCTION })
     })
 

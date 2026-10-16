@@ -45,6 +45,34 @@ export const TODO_METADATA_KEY = "todo"
 /** The tool name the model calls and the replay looks for. */
 export const TODO_TOOL_NAME = "todo"
 
+/** The description the model reads. It is also what tells our tool apart from another plugin's. */
+export const TODO_TOOL_DESCRIPTION =
+  "Set and maintain the plan for the task at hand. write replaces the list with the given items, update changes one item's status by id, clear empties it. Call it whenever the plan changes so the user can follow along. Returns the full list."
+
+/**
+ * Conventional names a task list can go by.
+ *
+ * `task` is deliberately absent: in OpenCode that is the subagent tool, not a
+ * plan, and treating it as a conflict would make this plugin step aside for the
+ * wrong thing.
+ */
+const TASK_TOOL_NAMES: readonly string[] = ["todo", "todowrite", "todos"]
+
+/**
+ * Whether a registered tool is somebody else's task list.
+ *
+ * The description is the discriminator, not the name: when this plugin reloads,
+ * its own tool is still in the registry, and matching on the name alone would
+ * make it step aside for itself.
+ */
+export function isForeignTaskTool(tool: {
+  readonly name: string
+  readonly description: string
+}): boolean {
+  if (!TASK_TOOL_NAMES.includes(tool.name)) return false
+  return tool.description !== TODO_TOOL_DESCRIPTION
+}
+
 export const EMPTY_TODO: TodoState = { items: [], nextId: 1 }
 
 const STATUSES: readonly TodoStatus[] = ["pending", "in_progress", "completed", "cancelled"]
