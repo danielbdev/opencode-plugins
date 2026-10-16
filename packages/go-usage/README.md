@@ -18,10 +18,13 @@ A `Go usage` section at the top of the sidebar content region, above the context
 
 ```
 Go usage
-5h 0% · resets in 4h 52m
-wk 2% · resets in 3d 3h
-mo 1% · resets in 24d 20h
+5h 2% · resets in 50m
+wk 0% · resets in 4d 3h
+mo 0% · resets in 25d 20h
 ```
+
+A window whose provider status is anything other than `ok` renders that status after the countdown, so
+an exhausted or over-limit window is visible instead of showing a bare percentage.
 
 `/usage` (or the command palette) opens the same data as a detail dialog and forces a refresh.
 
