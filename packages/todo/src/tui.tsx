@@ -11,7 +11,6 @@ import {
   replayTodo,
   summaryFeedback,
   todoEventsFrom,
-  visibleItems,
   type FeedbackKind,
 } from "./core/todo.ts"
 
@@ -92,7 +91,7 @@ export default Plugin.define({
         <box flexDirection="column">
           <text fg={titleColor(context)}>To-do</text>
           <text fg={feedbackColor(context, summaryFeedback(state()))}>{formatSummary(state())}</text>
-          {visibleItems(state()).map((item) => (
+          {state().items.map((item) => (
             <text fg={feedbackColor(context, feedbackOf(item.status))}>{formatItem(item)}</text>
           ))}
         </box>

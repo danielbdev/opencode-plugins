@@ -14,7 +14,6 @@ import {
   replayTodo,
   summaryFeedback,
   todoEventsFrom,
-  visibleItems,
   type TodoInput,
   type TodoState,
 } from "./todo.ts"
@@ -169,19 +168,6 @@ test("formatItem marks every status", () => {
   assert.equal(formatItem({ id: "2", text: "b", status: "in_progress" }), "[~] b")
   assert.equal(formatItem({ id: "3", text: "c", status: "completed" }), "[x] c")
   assert.equal(formatItem({ id: "4", text: "d", status: "cancelled" }), "[-] d")
-})
-
-test("visibleItems keeps the open work and drops the rest", () => {
-  const state = applyTodo(EMPTY_TODO, { action: "write", items: ["a", "b", "c", "d"] })
-  const marked = applyTodo(
-    applyTodo(
-      applyTodo(state, { action: "update", id: "2", status: "in_progress" }),
-      { action: "update", id: "3", status: "completed" },
-    ),
-    { action: "update", id: "4", status: "cancelled" },
-  )
-
-  assert.deepEqual(visibleItems(marked).map((item) => item.id), ["1", "2"])
 })
 
 test("feedbackOf maps every status onto a theme feedback kind", () => {

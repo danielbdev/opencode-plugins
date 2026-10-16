@@ -21,7 +21,7 @@ To-do
 [ ] write the tests
 ```
 
-Finished and cancelled items are counted but not listed, so the section stays on the work that is left.
+Finished and cancelled items stay in the list, marked `[x]` and `[-]`, so the count can be checked against what is there rather than trusted.
 
 ## How it works
 

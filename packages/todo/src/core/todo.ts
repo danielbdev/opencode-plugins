@@ -292,11 +292,6 @@ export function formatItem(item: TodoItem): string {
   return `[ ] ${item.text}`
 }
 
-/** The open work: what still needs doing, in list order. */
-export function visibleItems(state: TodoState): readonly TodoItem[] {
-  return state.items.filter((item) => item.status === "pending" || item.status === "in_progress")
-}
-
 export function feedbackOf(status: TodoStatus): FeedbackKind {
   if (status === "in_progress") return "warning"
   if (status === "completed") return "success"
