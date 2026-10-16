@@ -7,7 +7,9 @@ import {
   TODO_TOOL_DESCRIPTION,
   applyTodo,
   carriesWholeList,
+  formatHeader,
   formatItem,
+  formatSectionTitle,
   formatSummary,
   groupBySession,
   isForeignTaskTool,
@@ -17,6 +19,7 @@ import {
   todoEventsFrom,
   toneOf,
   unseenMessages,
+  type AgentList,
   type TodoInput,
   type TodoState,
 } from "./todo.ts"
@@ -234,6 +237,30 @@ test("groupBySession keeps the viewed session first and drops the ones with noth
       ["child", "explore", false],
     ],
   )
+})
+
+test("formatHeader names the owner of a list and marks a folded one", () => {
+  const started = applyTodo(
+    applyTodo(EMPTY_TODO, { action: "write", items: ["a", "b", "c"] }),
+    { action: "update", id: "1", status: "completed" },
+  )
+  const root: AgentList = { sessionID: "root", agent: null, root: true, state: started }
+  const child: AgentList = { sessionID: "child", agent: "explore", root: false, state: started }
+
+  assert.equal(formatHeader(root, false), "1 of 3 done")
+  assert.equal(formatHeader(child, false), "explore · 1 of 3 done")
+
+  // A folded list says so instead of reading as a plan with nothing under it.
+  assert.equal(formatHeader(root, true), "▸ 1 of 3 done")
+  assert.equal(formatHeader(child, true), "▸ explore · 1 of 3 done")
+
+  // A subagent OpenCode did not name still gets a line of its own.
+  assert.equal(formatHeader({ ...child, agent: null }, false), "subagent · 1 of 3 done")
+})
+
+test("formatSectionTitle marks the section once it is folded away", () => {
+  assert.equal(formatSectionTitle(false), "TO-DO")
+  assert.equal(formatSectionTitle(true), "▸ TO-DO")
 })
 
 test("toneOf maps every status onto a theme slot", () => {

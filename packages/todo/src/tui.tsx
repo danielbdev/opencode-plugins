@@ -5,8 +5,9 @@ import { createMemo, createSignal, onCleanup } from "solid-js"
 import {
   TODO_TOOL_NAME,
   carriesWholeList,
+  formatHeader,
   formatItem,
-  formatSummary,
+  formatSectionTitle,
   groupBySession,
   summaryTone,
   todoEventsFrom,
@@ -71,6 +72,27 @@ export default Plugin.define({
   id: "opencode-todo.tui",
   setup(context) {
     const histories = new Map<string, History>()
+
+    /**
+     * What the user has folded away, for as long as the plugin is loaded.
+     *
+     * A signal rather than a plain object, because the section redraws from it: reading
+     * `folds()` inside the render is what makes a click show up instead of waiting for
+     * the next event. The section toggle belongs to the HUD and outlives the session on
+     * screen; a group's is keyed by the session whose items it hides.
+     */
+    const [folds, setFolds] = createSignal<{
+      readonly section: boolean
+      readonly groups: Readonly<Record<string, boolean>>
+    }>({ section: false, groups: {} })
+
+    const toggleSection = () => setFolds((previous) => ({ ...previous, section: !previous.section }))
+
+    const toggleGroup = (id: string) =>
+      setFolds((previous) => ({
+        ...previous,
+        groups: { ...previous.groups, [id]: !previous.groups[id] },
+      }))
 
     // A runtime that did not expose the client would leave the section with the
     // window the data layer has, which is where it started: the read-back is skipped
@@ -199,22 +221,29 @@ export default Plugin.define({
         return groupBySession(sessions, root, TODO_TOOL_NAME)
       })
 
+      // Read through the signal, so a click redraws the section on its own.
+      const folded = (id: string) => folds().groups[id] === true
+
       return (
         <box flexDirection="column">
-          <text fg={titleColor(context)}>TO-DO</text>
-          {lists().length === 0 ? (
+          <box onMouseDown={toggleSection}>
+            <text fg={titleColor(context)}>{formatSectionTitle(folds().section)}</text>
+          </box>
+          {folds().section ? null : lists().length === 0 ? (
             <text fg={toneColor(context, "muted")}>no tasks yet</text>
           ) : (
             lists().map((list) => (
               <box flexDirection="column">
-                <text fg={toneColor(context, summaryTone(list.state))}>
-                  {list.root
-                    ? formatSummary(list.state)
-                    : `${list.agent ?? "subagent"} · ${formatSummary(list.state)}`}
-                </text>
-                {list.state.items.map((item) => (
-                  <text fg={toneColor(context, toneOf(item.status))}>{formatItem(item)}</text>
-                ))}
+                <box onMouseDown={() => toggleGroup(list.sessionID)}>
+                  <text fg={toneColor(context, summaryTone(list.state))}>
+                    {formatHeader(list, folded(list.sessionID))}
+                  </text>
+                </box>
+                {folded(list.sessionID)
+                  ? null
+                  : list.state.items.map((item) => (
+                      <text fg={toneColor(context, toneOf(item.status))}>{formatItem(item)}</text>
+                    ))}
                 <text> </text>
               </box>
             ))

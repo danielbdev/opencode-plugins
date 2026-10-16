@@ -15,13 +15,15 @@ instruction to add to any `AGENTS.md`, in this project or any other.
 ## What it shows
 
 ```
-To-do
+TO-DO
 2 of 5 done
 [~] wire the sidebar section
 [ ] write the tests
 ```
 
 Finished and cancelled items stay in the list, marked `[x]` and `[-]`, so the count can be checked against what is there rather than trusted.
+
+Click the `TO-DO` title to fold the whole section away, and click a summary line — `2 of 5 done`, or `explore · 1 of 3 done` for a subagent — to fold just that list. The two are independent: folding the section and opening it again leaves every list as you left it. A folded line wears `▸`, so a header with nothing under it reads as folded instead of as a plan someone emptied.
 
 ## How it works
 

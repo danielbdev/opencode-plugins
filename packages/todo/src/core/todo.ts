@@ -378,6 +378,25 @@ export function groupBySession(
   return groups.sort((left, right) => Number(right.root) - Number(left.root))
 }
 
+/** The mark a folded line wears, so a header with nothing under it reads as folded. */
+const COLLAPSED_MARKER = "▸ "
+
+/** The line that heads the section, marked once the whole thing is folded away. */
+export function formatSectionTitle(collapsed: boolean): string {
+  return collapsed ? `${COLLAPSED_MARKER}TO-DO` : "TO-DO"
+}
+
+/**
+ * The line that heads one list: a subagent's names the agent that owns it, and a
+ * folded one says so instead of looking like a plan with nothing in it.
+ */
+export function formatHeader(list: AgentList, collapsed: boolean): string {
+  const summary = formatSummary(list.state)
+  const label = list.root ? summary : `${list.agent ?? "subagent"} · ${summary}`
+
+  return collapsed ? `${COLLAPSED_MARKER}${label}` : label
+}
+
 /** Pending and cancelled are muted: neither is work in flight. */
 export function toneOf(status: TodoStatus): TodoTone {
   if (status === "in_progress") return "warning"
