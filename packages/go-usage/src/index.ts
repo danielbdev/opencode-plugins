@@ -1,11 +1,10 @@
 import { Plugin } from "@opencode/plugin"
 
-import { errorSnapshot, parseUsage, type UsageSnapshot } from "./core/usage.ts"
+import { errorSnapshot, parseUsage, USER_AGENT, type UsageSnapshot } from "./core/usage.ts"
 import { UsageRpc } from "./rpc.ts"
 
 const INTEGRATION_ID = "opencode-go"
 const USAGE_URL = "https://opencode.ai/inference/go/v1/usage"
-const USER_AGENT = "opencode-go-usage/0.1.0"
 
 /** Usage moves slowly; the endpoint is undocumented, so we stay conservative. */
 const REFRESH_MS = 5 * 60_000
@@ -75,12 +74,20 @@ export default Plugin.define({
         inFlight = null
       }
 
-      await registration.events.emit("updated", {
-        fetchedAt: snapshot.fetchedAt,
-        ok: snapshot.ok,
-        error: snapshot.error,
-        windows: snapshot.windows.map((window) => ({ ...window })),
-      })
+      // Publishing must not fail the refresh: the snapshot is already read, and
+      // `refresh()` is awaited by setup and fired-and-forgotten by the interval,
+      // where a rejection would surface as an unhandled rejection.
+      try {
+        await registration.events.emit("updated", {
+          fetchedAt: snapshot.fetchedAt,
+          ok: snapshot.ok,
+          error: snapshot.error,
+          windows: snapshot.windows.map((window) => ({ ...window })),
+        })
+      } catch {
+        // Subscribers are optional; the caller still gets the fresh snapshot.
+      }
+
       return snapshot
     }
 

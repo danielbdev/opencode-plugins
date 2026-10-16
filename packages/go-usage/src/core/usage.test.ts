@@ -1,14 +1,19 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
+import pkg from "../../package.json" with { type: "json" }
+
 import {
   errorSnapshot,
   formatPercent,
   formatReset,
-  formatSummary,
+  formatStatus,
   formatWindow,
+  formatWindowDetail,
   parseSnapshot,
   parseUsage,
+  USER_AGENT,
+  type UsageWindow,
 } from "./usage.ts"
 
 const NOW = Date.parse("2026-10-14T20:35:38.000Z")
@@ -85,6 +90,15 @@ test("parseUsage reports an error snapshot for a non-object payload", () => {
   }
 })
 
+test("parseUsage carries the provider status through untouched", () => {
+  const snapshot = parseUsage(
+    { usage: { rolling: { status: "overage", percent: 100, resetsAt: "2026-10-14T21:25:45.000Z" } } },
+    NOW,
+  )
+
+  assert.equal(snapshot.windows[0]?.status, "overage")
+})
+
 test("formatPercent renders an integer percent or an em dash", () => {
   assert.equal(formatPercent(2), "2%")
   assert.equal(formatPercent(0), "0%")
@@ -109,19 +123,44 @@ test("formatReset handles the last minutes, the expired case and unknown input",
   assert.equal(formatReset("not-a-date", now), "unknown")
 })
 
-test("formatWindow and formatSummary compose the rendered line", () => {
+test("formatWindow and formatWindowDetail compose the rendered line", () => {
   const snapshot = parseUsage(LIVE_PAYLOAD, NOW)
 
   assert.equal(formatWindow(snapshot.windows[0]!, NOW), "5h 2% · resets in 50m")
   assert.equal(formatWindow(snapshot.windows[1]!, NOW), "wk 0% · resets in 4d 3h")
-  assert.equal(formatSummary(snapshot, NOW), "GO 5h 2% · wk 0% · mo 0%")
+  assert.equal(formatWindowDetail(snapshot.windows[0]!, NOW), "5h window    2%   resets in 50m")
 })
 
-test("formatSummary surfaces the failure state instead of percentages", () => {
+test("formatStatus stays silent in the steady state and surfaces anything else", () => {
+  // `ok` is the steady state, so it adds nothing to the line.
+  assert.equal(formatStatus("ok"), "")
+  assert.equal(formatStatus(null), "")
+  assert.equal(formatStatus(""), " ()")
+
+  // Any other status is unknown territory on an undocumented endpoint: show it
+  // verbatim rather than guessing a friendlier wording.
+  assert.equal(formatStatus("overage"), " (overage)")
+  assert.equal(formatStatus("exceeded"), " (exceeded)")
+})
+
+test("formatWindow and formatWindowDetail surface a non-ok provider status", () => {
+  const window: UsageWindow = {
+    key: "rolling",
+    short: "5h",
+    long: "5h window",
+    percent: 100,
+    resetsAt: "2026-10-14T21:25:45.000Z",
+    status: "overage",
+  }
+
+  assert.equal(formatWindow(window, NOW), "5h 100% · resets in 50m (overage)")
+  assert.equal(formatWindowDetail(window, NOW), "5h window  100%   resets in 50m (overage)")
+})
+
+test("an error snapshot renders as an unknown window, not fabricated percentages", () => {
   const snapshot = errorSnapshot("Go integration is not connected", NOW)
 
   assert.equal(snapshot.ok, false)
-  assert.equal(formatSummary(snapshot, NOW), "GO usage unavailable")
   assert.equal(formatWindow(snapshot.windows[0]!, NOW), "5h — · unknown")
 })
 
@@ -138,7 +177,6 @@ test("parseSnapshot accepts a snapshot that crossed the RPC boundary", () => {
   )
   assert.equal(received!.windows[0]!.short, "5h")
   assert.equal(received!.windows[0]!.long, "5h window")
-  assert.equal(formatSummary(received!, NOW), "GO 5h 2% · wk 0% · mo 0%")
 })
 
 test("parseSnapshot rejects anything that is not a snapshot object", () => {
@@ -165,3 +203,8 @@ test("parseSnapshot degrades a malformed window entry instead of throwing", () =
   assert.equal(received!.windows[2]!.key, "monthly")
 })
 
+test("USER_AGENT tracks the published package version", () => {
+  // Guards the drift a hardcoded literal invites: bump the manifest without
+  // touching the constant and this fails before the package is published.
+  assert.equal(USER_AGENT, `opencode-go-usage/${pkg.version}`)
+})
