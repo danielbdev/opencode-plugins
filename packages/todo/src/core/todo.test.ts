@@ -8,6 +8,7 @@ import {
   applyTodo,
   formatItem,
   formatSummary,
+  groupBySession,
   isForeignTaskTool,
   readSnapshot,
   replayTodo,
@@ -168,6 +169,29 @@ test("formatItem marks every status", () => {
   assert.equal(formatItem({ id: "2", text: "b", status: "in_progress" }), "[~] b")
   assert.equal(formatItem({ id: "3", text: "c", status: "completed" }), "[x] c")
   assert.equal(formatItem({ id: "4", text: "d", status: "cancelled" }), "[-] d")
+})
+
+test("groupBySession keeps the viewed session first and drops the ones with nothing", () => {
+  const rootState = applyTodo(EMPTY_TODO, { action: "write", items: ["root"] })
+  const childState = applyTodo(EMPTY_TODO, { action: "write", items: ["child"] })
+
+  const groups = groupBySession(
+    [
+      { id: "child", agent: "explore", messages: [callMessage(childState)] },
+      { id: "quiet", agent: "verify", messages: [] },
+      { id: "root", messages: [callMessage(rootState)] },
+    ],
+    "root",
+    "todo",
+  )
+
+  assert.deepEqual(
+    groups.map((group) => [group.sessionID, group.agent, group.root]),
+    [
+      ["root", null, true],
+      ["child", "explore", false],
+    ],
+  )
 })
 
 test("toneOf maps every status onto a theme slot", () => {

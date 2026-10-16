@@ -3,13 +3,11 @@ import { Plugin } from "@opencode/plugin/tui"
 import { createMemo, createSignal, onCleanup } from "solid-js"
 
 import {
-  EMPTY_TODO,
   TODO_TOOL_NAME,
   formatItem,
   formatSummary,
-  replayTodo,
+  groupBySession,
   summaryTone,
-  todoEventsFrom,
   toneOf,
   type TodoTone,
 } from "./core/todo.ts"
@@ -56,10 +54,11 @@ export default Plugin.define({
       const refresh = () => {
         if (syncing) return
         syncing = true
-        void context.data.session.message
-          .sync(props.sessionID)
+        const family = context.data.session.family(props.sessionID)
+        void Promise.all(
+          family.map((id) => context.data.session.message.sync(id).catch(() => {})),
+        )
           .then(() => setTick((value) => value + 1))
-          .catch(() => {})
           .finally(() => {
             syncing = false
           })
@@ -76,23 +75,39 @@ export default Plugin.define({
       const timer = setInterval(refresh, TICK_MS)
       onCleanup(() => clearInterval(timer))
 
-      const state = createMemo(() => {
+      const lists = createMemo(() => {
         tick()
 
         const root = props.sessionID
-        if (!root) return EMPTY_TODO
+        if (!root) return []
 
-        const messages = context.data.session.message.list(root)
-        return replayTodo(todoEventsFrom(messages, TODO_TOOL_NAME))
+        const sessions = context.data.session.family(root).map((id) => {
+          const info = context.data.session.get(id)
+          return { id, agent: info?.agent, messages: context.data.session.message.list(id) }
+        })
+
+        return groupBySession(sessions, root, TODO_TOOL_NAME)
       })
 
       return (
         <box flexDirection="column">
           <text fg={titleColor(context)}>To-do</text>
-          <text fg={toneColor(context, summaryTone(state()))}>{formatSummary(state())}</text>
-          {state().items.map((item) => (
-            <text fg={toneColor(context, toneOf(item.status))}>{formatItem(item)}</text>
-          ))}
+          {lists().length === 0 ? (
+            <text fg={toneColor(context, "muted")}>no tasks yet</text>
+          ) : (
+            lists().map((list) => (
+              <box flexDirection="column">
+                <text fg={toneColor(context, list.root ? summaryTone(list.state) : "muted")}>
+                  {list.root
+                    ? formatSummary(list.state)
+                    : `${list.agent ?? "subagent"} · ${formatSummary(list.state)}`}
+                </text>
+                {list.state.items.map((item) => (
+                  <text fg={toneColor(context, toneOf(item.status))}>{formatItem(item)}</text>
+                ))}
+              </box>
+            ))
+          )}
         </box>
       )
     }

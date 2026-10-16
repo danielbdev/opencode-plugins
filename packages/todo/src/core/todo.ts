@@ -295,6 +295,48 @@ export function formatItem(item: TodoItem): string {
 /** The theme slots this list uses. There is no failure colour: a to-do cannot fail. */
 export type TodoTone = "muted" | "warning" | "success"
 
+/** One session's list, with the agent that owns it. */
+export interface AgentList {
+  readonly sessionID: string
+  readonly agent: string | null
+  readonly root: boolean
+  readonly state: TodoState
+}
+
+/**
+ * Group the lists by session: the one being viewed first, then each subagent that
+ * has one, so a delegated plan is visible without opening its session.
+ *
+ * It lives here rather than in the agents package on purpose: reading a plan means
+ * knowing about the todo tool, and a package that knew about both would couple two
+ * capabilities that are independent today.
+ */
+export function groupBySession(
+  sessions: readonly {
+    readonly id: string
+    readonly agent?: string
+    readonly messages: readonly unknown[]
+  }[],
+  rootID: string,
+  toolName: string,
+): AgentList[] {
+  const groups: AgentList[] = []
+
+  for (const session of sessions) {
+    const state = replayTodo(todoEventsFrom(session.messages, toolName))
+    if (state.items.length === 0) continue
+
+    groups.push({
+      sessionID: session.id,
+      agent: session.agent ?? null,
+      root: session.id === rootID,
+      state,
+    })
+  }
+
+  return groups.sort((left, right) => Number(right.root) - Number(left.root))
+}
+
 /** Pending and cancelled are muted: neither is work in flight. */
 export function toneOf(status: TodoStatus): TodoTone {
   if (status === "in_progress") return "warning"
