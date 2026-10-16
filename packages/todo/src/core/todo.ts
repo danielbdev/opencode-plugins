@@ -277,6 +277,47 @@ export function replayTodo(events: readonly TodoEvent[]): TodoState {
   return state
 }
 
+/** The id a message is known by: what keeps it from being taken in twice. */
+function messageKey(message: unknown): string | null {
+  if (!isRecord(message)) return null
+  return typeof message.id === "string" ? message.id : null
+}
+
+/**
+ * The messages we have not seen yet, in order, remembered as ours now.
+ *
+ * The TUI keeps its own copy of a session's history, because the host hands out a
+ * *window* and a window moves: the newest messages arrive while the older ones fall
+ * out of it. Taking a message in twice would apply its calls twice, so identity
+ * decides what is new. A message carrying no id is not something that can be
+ * remembered, and it is dropped rather than folded again on every pass.
+ */
+export function unseenMessages(seen: Set<string>, messages: readonly unknown[]): unknown[] {
+  const fresh: unknown[] = []
+
+  for (const message of messages) {
+    const key = messageKey(message)
+    if (key === null || seen.has(key)) continue
+    seen.add(key)
+    fresh.push(message)
+  }
+
+  return fresh
+}
+
+/**
+ * Whether these messages are enough on their own to show a session's list.
+ *
+ * A snapshot, a `write` and a `clear` each supersede everything before them, so a
+ * stretch of history holding one replays to the real list. The calls that only
+ * update an item are no-ops against an empty state, which is what makes an empty
+ * replay mean "the call that built this list is older than what we have read" and
+ * not "this session has no list".
+ */
+export function carriesWholeList(messages: readonly unknown[], toolName: string): boolean {
+  return replayTodo(todoEventsFrom(messages, toolName)).items.length > 0
+}
+
 /** What the count line shows: progress, or an explicit empty state. */
 export function formatSummary(state: TodoState): string {
   if (state.items.length === 0) return "no tasks yet"

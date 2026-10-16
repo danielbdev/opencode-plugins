@@ -6,6 +6,7 @@ import {
   TODO_METADATA_KEY,
   TODO_TOOL_DESCRIPTION,
   applyTodo,
+  carriesWholeList,
   formatItem,
   formatSummary,
   groupBySession,
@@ -15,6 +16,7 @@ import {
   summaryTone,
   todoEventsFrom,
   toneOf,
+  unseenMessages,
   type TodoInput,
   type TodoState,
 } from "./todo.ts"
@@ -149,6 +151,46 @@ test("replayTodo ignores unfinished, errored and unrelated calls", () => {
     ),
     EMPTY_TODO,
   )
+})
+
+test("unseenMessages takes each message in once, in order", () => {
+  const seen = new Set<string>()
+  const first = { id: "msg_a", type: "user" }
+  const second = { id: "msg_b", type: "assistant" }
+
+  assert.deepEqual(unseenMessages(seen, [first, second]), [first, second])
+
+  // A window sliding back over what we already have adds nothing, so a call is
+  // never folded in twice.
+  assert.deepEqual(unseenMessages(seen, [second, first]), [])
+
+  assert.deepEqual(unseenMessages(seen, [{ id: "msg_c" }]), [{ id: "msg_c" }])
+})
+
+test("unseenMessages drops what it cannot remember", () => {
+  const seen = new Set<string>()
+
+  assert.deepEqual(unseenMessages(seen, [null, "x", { type: "assistant" }, { id: 7 }]), [])
+  assert.equal(seen.size, 0)
+})
+
+test("carriesWholeList is true only where a call replaced the whole list", () => {
+  const state = applyTodo(EMPTY_TODO, { action: "write", items: ["a", "b"] })
+
+  // A first-class call carries the snapshot it wrote.
+  assert.equal(carriesWholeList([callMessage(state)], "todo"), true)
+
+  // So does a write reached through Code Mode: it resets the list either way.
+  assert.equal(carriesWholeList([codeModeMessage([{ action: "write", items: ["a"] }])], "todo"), true)
+
+  // An update on its own proves nothing: the window is missing the write it edits,
+  // and a fold of it lands on nothing. This is the long-session case.
+  assert.equal(
+    carriesWholeList([codeModeMessage([{ action: "update", id: "2", status: "completed" }])], "todo"),
+    false,
+  )
+  assert.equal(carriesWholeList([], "todo"), false)
+  assert.equal(carriesWholeList([{ type: "assistant", content: [] }], "todo"), false)
 })
 
 test("formatSummary reports progress and has an explicit empty state", () => {

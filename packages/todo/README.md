@@ -47,6 +47,14 @@ first time a session is touched, and a restart loses nothing because the next ca
 The tradeoff, stated plainly: the first call of a session reads that session's history. It is an in-process
 read, not a network call, and it happens once per session.
 
+**The sidebar reads that same history through a window, so it keeps its own copy of the calls.** The TUI data
+layer holds the newest messages of a session and forgets the older ones, and a `sync` replaces that window
+instead of extending it. A plan set earlier in a long session therefore ends up outside it, and replaying what
+the window has alone would show nothing for a session that has one. So the section takes in the calls it sees
+as they happen and, while what it holds has no `write`, `clear` or snapshot in it, reads back through the
+session until it finds one. The read is skipped when the window already carries one, which is the case for
+every session short enough to fit in a page.
+
 ### Why the instruction is fixed text
 
 The plugin pushes one constant line into the system prompt through the `context` hook. It is deliberately
