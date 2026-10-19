@@ -1,7 +1,7 @@
 import { Plugin } from "@opencode/plugin"
 
 import { createResyncGate } from "./core/resync.ts"
-import { errorSnapshot, parseUsage, USER_AGENT, type UsageSnapshot } from "./core/usage.ts"
+import { errorSnapshot, parseUsage, providerErrorMessage, USER_AGENT, type UsageSnapshot } from "./core/usage.ts"
 import { UsageRpc } from "./rpc.ts"
 
 const INTEGRATION_ID = "opencode-go"
@@ -57,7 +57,14 @@ export default Plugin.define({
         })
 
         if (!response.ok) {
-          return errorSnapshot(`Usage request failed with HTTP ${response.status}`, now)
+          // The provider explains its own failures ("api_key_expired" and the
+          // like); reading that body is what turns an opaque 401 into a line
+          // the user can act on.
+          const detail = await response.text().then(
+            (body) => providerErrorMessage(response.status, body.slice(0, 4096)),
+            () => providerErrorMessage(response.status, ""),
+          )
+          return errorSnapshot(detail, now)
         }
 
         return parseUsage(await response.json(), now)

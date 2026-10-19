@@ -102,7 +102,14 @@ export default Plugin.define({
       }
     }
 
-    void pull(false)
+    // Start with a forced refresh, not a read of whatever the server has.
+    //
+    // The server fetches on its own setup and publishes `updated`; if the TUI
+    // attaches after that event, a plain `get` can return the "not loaded yet"
+    // placeholder and the section sits on it until the five-minute timer. Asking
+    // for a refresh coalesces with any fetch already in flight and always
+    // resolves to a real snapshot (or a real error).
+    void pull(true)
 
     const stopEvents = (() => {
       try {

@@ -12,6 +12,7 @@ import {
   formatWindowDetail,
   parseSnapshot,
   parseUsage,
+  providerErrorMessage,
   USER_AGENT,
   type UsageWindow,
 } from "./usage.ts"
@@ -201,6 +202,35 @@ test("parseSnapshot degrades a malformed window entry instead of throwing", () =
   assert.equal(received!.windows[0]!.percent, 9)
   assert.equal(received!.windows[1]!.percent, null)
   assert.equal(received!.windows[2]!.key, "monthly")
+})
+
+test("providerErrorMessage turns a live api_key_expired body into an actionable line", () => {
+  // Recorded live on 2026-10-19: the provider explains itself and says signing
+  // in again will not renew the key.
+  const body = JSON.stringify({
+    error: {
+      type: "unauthorized",
+      code: "api_key_expired",
+      message:
+        "This API key has expired. Create a new API key in OpenCode Console and replace it in your client or secret store. Signing in again will not renew this key.",
+    },
+  })
+
+  assert.equal(providerErrorMessage(401, body), "API key expired — create a new one in OpenCode Console")
+})
+
+test("providerErrorMessage keeps the HTTP status for an unknown code", () => {
+  assert.equal(
+    providerErrorMessage(403, JSON.stringify({ error: { code: "forbidden" } })),
+    "Usage request failed with HTTP 403 (forbidden)",
+  )
+})
+
+test("providerErrorMessage falls back to the status when the body is not usable", () => {
+  assert.equal(providerErrorMessage(400, "not json"), "Usage request failed with HTTP 400")
+  assert.equal(providerErrorMessage(500, ""), "Usage request failed with HTTP 500")
+  assert.equal(providerErrorMessage(502, JSON.stringify({ error: "boom" })), "Usage request failed with HTTP 502")
+  assert.equal(providerErrorMessage(503, JSON.stringify({ error: {} })), "Usage request failed with HTTP 503")
 })
 
 test("USER_AGENT tracks the published package version", () => {
