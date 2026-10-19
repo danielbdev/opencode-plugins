@@ -26,7 +26,7 @@
  * (bump this line alongside the manifest) instead of adding a JSON import to
  * the server plugin's load path.
  */
-export const USER_AGENT = "opencode-go-usage/0.1.4"
+export const USER_AGENT = "opencode-go-usage/0.1.5"
 
 export const WINDOW_KEYS = ["rolling", "weekly", "monthly"] as const
 
@@ -113,6 +113,46 @@ export function errorSnapshot(message: string, now: number): UsageSnapshot {
     error: message,
     windows: WINDOW_KEYS.map(unknownWindow),
   }
+}
+
+/**
+ * Provider error codes worth translating.
+ *
+ * The endpoint is undocumented, so an unknown code is surfaced verbatim rather
+ * than guessed at. The one we have seen live is the one that costs the user
+ * time: an expired key, which the provider itself says cannot be fixed by
+ * signing in again.
+ */
+const KNOWN_ERRORS: Record<string, string> = {
+  api_key_expired: "API key expired — create a new one in OpenCode Console",
+}
+
+/**
+ * Turn a failed response into the line the sidebar shows.
+ *
+ * The provider sends `{"error":{"code","message"}}`; codes we know get a short
+ * actionable line, and anything else keeps the HTTP status plus the code so the
+ * failure is still attributable without dumping a long message into the sidebar.
+ */
+export function providerErrorMessage(status: number, body: string): string {
+  const fallback = `Usage request failed with HTTP ${status}`
+
+  let payload: unknown
+  try {
+    payload = JSON.parse(body)
+  } catch {
+    return fallback
+  }
+
+  if (!isRecord(payload) || !isRecord(payload.error)) return fallback
+
+  const code = typeof payload.error.code === "string" && payload.error.code.length > 0
+    ? payload.error.code
+    : null
+  if (code === null) return fallback
+
+  const known = KNOWN_ERRORS[code]
+  return known ?? `${fallback} (${code})`
 }
 
 /**
