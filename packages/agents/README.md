@@ -54,7 +54,9 @@ and the timing of each subagent. That is the feature — a status section cannot
 status. Nothing is written back, nothing is persisted, and the data never leaves the TUI process.
 
 Like every package in this repository it ships its sources unminified, with no build step and no
-install-time script, and each release carries a provenance attestation.
+install-time script. Releases are built and staged by CI from this repository and published only after a
+maintainer approves the staged version with 2FA; `npm audit signatures` reports whether a published version
+carries a provenance attestation.
 
 ## Development
 
@@ -71,9 +73,9 @@ This package lives in a monorepo of atomic plugins: each package does one thing 
 
 ## Releasing
 
-Same flow as every package in this repository: bump, commit, tag `<directory>@<version>`, push the tag,
-and GitHub Actions publishes it over OIDC. See the repository README of the sibling package for the
-exact commands.
+Same flow as every package in this repository: bump, commit, tag `<directory>@<version>`, push the tag, and
+GitHub Actions stages the version; a maintainer then approves it with 2FA. See the repository README and
+the sibling package's Releasing section for the exact commands.
 
 ## License
 
