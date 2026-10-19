@@ -70,7 +70,9 @@ This plugin **reads no credentials**. It reads and writes the session's own mess
 any tool does, and it makes no network request of its own.
 
 Like every package in this repository it ships its sources unminified, with no build step and no
-install-time script, and each release carries a provenance attestation.
+install-time script. Releases are built and staged by CI from this repository and published only after a
+maintainer approves the staged version with 2FA; `npm audit signatures` reports whether a published version
+carries a provenance attestation.
 
 ## Development
 
