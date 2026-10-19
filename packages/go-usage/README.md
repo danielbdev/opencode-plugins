@@ -86,8 +86,8 @@ deserves to be reviewed with that lens. Here is what it does with it, and how to
 
 - **The sources ship unminified.** There is no build step and no bundle: `npm pack` publishes the same
   eight files you can read in this repository, so the audit surface is the entire program.
-- **Provenance.** Releases are published from GitHub Actions over OIDC and carry a SLSA provenance
-  attestation that ties the tarball to the commit and the workflow that produced it.
+- **Provenance.** Releases are built and staged by GitHub Actions from this repository; the staging step
+  asks for an attestation, and `npm audit signatures` reports whether a published version carries one.
 - **Nothing runs at install time.** There is no `preinstall`, `postinstall` or `prepare` script, so
   installing the package executes no code.
 
@@ -114,8 +114,9 @@ This package lives in a monorepo of atomic plugins: each package does one thing 
 
 ## Releasing
 
-A release is cut by pushing a tag shaped `<workspace-directory>@<version>`; GitHub Actions then publishes
-that package through npm trusted publishing (OIDC), so no npm token is stored anywhere.
+A release is cut by pushing a tag shaped `<workspace-directory>@<version>`. GitHub Actions then runs the
+tests and the typecheck, checks that the tag matches the manifest, and **stages** that version into npm's
+staging queue. Nothing is installable until a maintainer approves it with 2FA.
 
 ```sh
 npm version patch -w @danielbdev/opencode-go-usage --no-git-tag-version
@@ -129,12 +130,18 @@ Use an **annotated** tag (`-a`): `git push --follow-tags` only pushes annotated 
 would silently never trigger the workflow.
 
 The workflow checks that the tag matches the version in the manifest, so a mistyped tag fails loudly
-instead of publishing the wrong thing. It runs the tests and the typecheck before publishing, and npm
-attaches a provenance attestation automatically because the repository and the package are public.
+instead of staging the wrong thing. The CI credential is a granular npm token that may only stage packages,
+so nothing in this repository can publish on its own; approving a staged version is a human action:
 
-After a successful publish the workflow opens a **release page for the tag**, with notes generated from the
-commits since the previous release. That is where "what changed in this version" gets answered; edit the
-notes afterwards when the generated list is broader than the package being released.
+```sh
+npm stage list
+npm stage approve <stage-id>
+```
+
+After the tag the workflow opens a **release page for the tag**, with notes generated from the commits
+since the previous release. That is where "what changed in this version" gets answered; edit the notes
+afterwards when the generated list is broader than the package being released. The release page can exist
+while the npm version is still waiting for approval, which is why it says so.
 
 Versions are **independent per package**: touching one plugin never forces a release of another.
 
