@@ -72,33 +72,43 @@ export default Plugin.define({
       usage = undefined
     }
 
-    const [state, setState] = context.storage.memory<HudState>("usage", {
+    // `storage.memory` survives hot reloads, but the value it returns is not a
+    // reactive store: mutating it updates the dialog (which reads it on demand)
+    // while the sidebar keeps rendering the snapshot it saw first. The signals
+    // are what the section tracks; the memory store is the cross-generation
+    // cache, seeded once at setup and written through on every change.
+    const [stored, persist] = context.storage.memory<HudState>("usage", {
       initial: { snapshot: initialSnapshot(), fault: null },
     })
+
+    const [snapshot, setSnapshot] = createSignal<UsageSnapshot>(stored.snapshot)
+    const [fault, setFault] = createSignal<string | null>(stored.fault)
+
+    const commit = (next: UsageSnapshot, nextFault: string | null) => {
+      setSnapshot(next)
+      setFault(nextFault)
+      persist((draft) => {
+        draft.snapshot = next
+        draft.fault = nextFault
+      })
+    }
 
     const apply = (value: unknown) => {
       const parsed = parseSnapshot(value)
       if (parsed === null) return
-      setState((draft) => {
-        draft.snapshot = parsed
-        draft.fault = null
-      })
+      commit(parsed, null)
     }
 
     const pull = async (refresh: boolean) => {
       if (usage === undefined) {
-        setState((draft) => {
-          draft.fault = "Usage unavailable: the usage plugin is not loaded"
-        })
+        commit(snapshot(), "Usage unavailable: the usage plugin is not loaded")
         return
       }
       try {
         apply(await usage.get({ refresh }))
       } catch (cause) {
         const detail = cause instanceof Error ? cause.message : "unknown error"
-        setState((draft) => {
-          draft.fault = `Usage unavailable: ${detail}`
-        })
+        commit(snapshot(), `Usage unavailable: ${detail}`)
       }
     }
 
@@ -127,8 +137,10 @@ export default Plugin.define({
       onCleanup(() => clearInterval(timer))
 
       const body = createMemo(() => {
-        if (state.fault !== null) return state.fault
-        if (!state.snapshot.ok && state.snapshot.error !== null) return state.snapshot.error
+        const failure = fault()
+        if (failure !== null) return failure
+        const current = snapshot()
+        if (!current.ok && current.error !== null) return current.error
         return null
       })
 
@@ -138,7 +150,7 @@ export default Plugin.define({
           {body() !== null ? (
             <text fg={themeColor(context, "muted")}>{body()}</text>
           ) : (
-            state.snapshot.windows.map((window) => (
+            snapshot().windows.map((window) => (
               <text fg={themeColor(context, "muted")}>{formatWindow(window, now())}</text>
             ))
           )}
@@ -166,7 +178,7 @@ export default Plugin.define({
             await pull(true)
             await context.ui.dialog.alert({
               title: "OpenCode Go usage",
-              message: detailMessage(state.snapshot, Date.now(), state.fault),
+              message: detailMessage(snapshot(), Date.now(), fault()),
             })
           },
         },
