@@ -17,6 +17,17 @@
  * plain `node --test`.
  */
 
+/**
+ * User agent sent to the usage endpoint.
+ *
+ * The version travels with the request so a provider-side failure is
+ * attributable to a build. It stays a literal deliberately: `usage.test.ts`
+ * pins it to `package.json`, so a release bump fails the suite before publish
+ * (bump this line alongside the manifest) instead of adding a JSON import to
+ * the server plugin's load path.
+ */
+export const USER_AGENT = "opencode-go-usage/0.1.4"
+
 export const WINDOW_KEYS = ["rolling", "weekly", "monthly"] as const
 
 export type WindowKey = (typeof WINDOW_KEYS)[number]
@@ -173,9 +184,24 @@ export function formatReset(resetsAt: string | null, now: number): string {
   return `resets in ${minutes}m`
 }
 
+/**
+ * Provider status that qualifies the percentage, e.g. ` (overage)`.
+ *
+ * `ok` is the steady state and renders as nothing, so the common line is
+ * unchanged. Any other non-null status is surfaced verbatim: the endpoint is
+ * undocumented, so a status is the only signal that a window needs attention and
+ * it is not ours to reinterpret.
+ */
+export function formatStatus(status: string | null): string {
+  return status === null || status === "ok" ? "" : ` (${status})`
+}
+
 /** One window as a single line, e.g. `5h 2% · resets in 50m`. */
 export function formatWindow(window: UsageWindow, now: number): string {
-  return `${window.short} ${formatPercent(window.percent)} · ${formatReset(window.resetsAt, now)}`
+  return `${window.short} ${formatPercent(window.percent)} · ${formatReset(
+    window.resetsAt,
+    now,
+  )}${formatStatus(window.status)}`
 }
 
 /** One window as a detail row, e.g. `5h window   2%   resets in 50m`. */
@@ -183,11 +209,5 @@ export function formatWindowDetail(window: UsageWindow, now: number): string {
   return `${window.long.padEnd(10)} ${formatPercent(window.percent).padStart(4)}   ${formatReset(
     window.resetsAt,
     now,
-  )}`
-}
-
-/** Compact status line for the TUI slot, e.g. `GO 5h 2% · wk 0% · mo 0%`. */
-export function formatSummary(snapshot: UsageSnapshot, _now: number): string {
-  if (!snapshot.ok) return "GO usage unavailable"
-  return `GO ${snapshot.windows.map((w) => `${w.short} ${formatPercent(w.percent)}`).join(" · ")}`
+  )}${formatStatus(window.status)}`
 }

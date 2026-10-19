@@ -18,10 +18,13 @@ A `Go usage` section at the top of the sidebar content region, above the context
 
 ```
 Go usage
-5h 0% · resets in 4h 52m
-wk 2% · resets in 3d 3h
-mo 1% · resets in 24d 20h
+5h 2% · resets in 50m
+wk 0% · resets in 4d 3h
+mo 0% · resets in 25d 20h
 ```
+
+A window whose provider status is anything other than `ok` renders that status after the countdown, so
+an exhausted or over-limit window is visible instead of showing a bare percentage.
 
 `/usage` (or the command palette) opens the same data as a detail dialog and forces a refresh.
 
@@ -31,7 +34,7 @@ Two entrypoints in one package:
 
 | Entrypoint | Role |
 | ---------- | ---- |
-| `src/index.ts` (`@opencode/plugin`) | Server plugin. Resolves the `opencode-go` credential, reads the usage endpoint with a 5-minute cache, and publishes the snapshot over RPC. |
+| `src/index.ts` (`@opencode/plugin`) | Server plugin. Resolves the `opencode-go` credential, reads the usage endpoint with a 5-minute cache, re-reads once a settled turn has moved usage, and publishes the snapshot over RPC. |
 | `src/tui.tsx` (`@opencode/plugin/tui`) | TUI plugin. Renders the sidebar section and the `/usage` command. |
 
 The credential never leaves the server process. The TUI plugin **cannot** read a credential — the
@@ -60,7 +63,9 @@ This endpoint is **live but undocumented**. Two consequences the code respects:
 - Because the endpoint can change without notice, every failure degrades to an explicit state
   (`Usage unavailable: ...`) instead of breaking the TUI.
 
-The plugin mirrors the endpoint exactly; its own 5-minute cache is the only staleness it can add.
+The plugin mirrors the endpoint exactly. The 5-minute cache bounds how stale a background reading can
+be; a settled turn re-reads sooner, throttled to at most one read per minute so rapid turns cannot hammer
+the endpoint.
 
 ## Security
 
@@ -126,6 +131,10 @@ would silently never trigger the workflow.
 The workflow checks that the tag matches the version in the manifest, so a mistyped tag fails loudly
 instead of publishing the wrong thing. It runs the tests and the typecheck before publishing, and npm
 attaches a provenance attestation automatically because the repository and the package are public.
+
+After a successful publish the workflow opens a **release page for the tag**, with notes generated from the
+commits since the previous release. That is where "what changed in this version" gets answered; edit the
+notes afterwards when the generated list is broader than the package being released.
 
 Versions are **independent per package**: touching one plugin never forces a release of another.
 
