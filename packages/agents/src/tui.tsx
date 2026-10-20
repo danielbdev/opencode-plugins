@@ -37,6 +37,12 @@ function titleColor(context: Plugin.Context): string {
   return (text?.["base"] ?? "white") as string
 }
 
+/** The muted slot, for a line that reports absence instead of state. */
+function mutedColor(context: Plugin.Context): string {
+  const text = (context.theme as unknown as { text?: Record<string, unknown> } | undefined)?.text
+  return (text?.["muted"] ?? "gray") as string
+}
+
 /**
  * TUI-only plugin.
  *
@@ -77,7 +83,7 @@ export default Plugin.define({
       return (
         <box flexDirection="column">
           <text fg={titleColor(context)}>Agents</text>
-          <text fg={feedbackColor(context, summaryFeedback(summary()))}>{formatCounts(summary())}</text>
+          <text fg={summary().total === 0 ? mutedColor(context) : feedbackColor(context, summaryFeedback(summary()))}>{formatCounts(summary())}</text>
           {summary().entries.map((entry) => (
             <text fg={feedbackColor(context, feedbackOf(entry.state))}>{formatAgentLine(entry)}</text>
           ))}
