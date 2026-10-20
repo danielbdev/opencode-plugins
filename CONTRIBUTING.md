@@ -35,7 +35,7 @@ There is no build step: the packages ship their TypeScript sources, and Node run
 
 ## The release path is protected
 
-`.github/workflows/` and the package manifests decide what gets published. Changes there need the
+`.github/workflows/` and the package manifests decide what gets staged and published. Changes there need the
 maintainer's review — see `.github/CODEOWNERS` — and nobody but the maintainer creates release tags. If
 you believe the release process itself needs to change, open an issue and explain the problem instead of
 sending a patch.

@@ -1,7 +1,7 @@
-# Paths that decide what gets published, or that publish it.
+# Paths that decide what gets staged and released.
 #
 # A change to any of these can release code to the registry: the workflow is what
-# runs the publish, and the manifests decide what the tarball contains. They must
+# stages the release, and the manifests decide what the tarball contains. They must
 # never be merged without the maintainer reviewing them, even once the repository
 # has other people with write access.
 /.github/**                @danielbdev

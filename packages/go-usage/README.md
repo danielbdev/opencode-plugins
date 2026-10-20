@@ -85,7 +85,7 @@ deserves to be reviewed with that lens. Here is what it does with it, and how to
 ### What you can verify instead of trusting
 
 - **The sources ship unminified.** There is no build step and no bundle: `npm pack` publishes the same
-  eight files you can read in this repository, so the audit surface is the entire program.
+  sources you can read in this repository, so the audit surface is the entire program.
 - **Provenance.** Releases are built and staged by GitHub Actions from this repository; the staging step
   asks for an attestation, and `npm audit signatures` reports whether a published version carries one.
 - **Nothing runs at install time.** There is no `preinstall`, `postinstall` or `prepare` script, so
